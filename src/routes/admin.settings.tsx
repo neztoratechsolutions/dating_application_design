@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { GlassCard, PageHeader } from "@/components/ui-kit";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Settings, CreditCard, Phone, Gamepad2, ShieldCheck, Bell, Save, RotateCcw, Upload } from "lucide-react";
+import { Settings, CreditCard, Phone, Gamepad2, ShieldCheck, Bell, Save, RotateCcw, Upload, Loader2 } from "lucide-react";
+
+const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -14,13 +16,22 @@ const TABS = [
 ];
 
 const DEFAULTS = {
-  appName: "Velora Live", supportEmail: "support@velora.live", supportPhone: "+91 80000 00000",
+  appName: "Velora Live", 
+  supportEmail: "support@velora.live", 
+  supportPhone: "+91 80000 00000",
   logo: "", favicon: "",
   razorpayKey: "rzp_live_xxxxx", razorpaySecret: "••••••••", coinRate: 1, creatorCommission: 80, platformCommission: 20, gst: 18,
   minCall: 60, voicePrice: 15, videoPrice: 30, autoDisconnect: 30,
   ccEntry: 10, ccReward: 100, scratchEntry: 20, scratchReward: 500,
   otp: true, kycMandatory: true, deviceTrack: true, fraud: true,
   push: true, email: true, sms: false,
+};
+
+// Helper to fix Windows backslashes and relative paths
+const buildImageUrl = (path?: string): string => {
+  if (!path) return "";
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  return `${API_BASE_URL.replace(/\/+$/, "")}/${normalized}`;
 };
 
 function Row({ label, children }: any) {
@@ -39,13 +50,98 @@ const Toggle = ({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 function Page() {
   const [tab, setTab] = useState("general");
   const [s, setS] = useState(DEFAULTS);
+  const [saving, setSaving] = useState(false);
+  
+  // State for files & previews
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [faviconFile, setFaviconFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
+  const [faviconPreview, setFaviconPreview] = useState("");
+
+  // Fetch existing settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/app-settings/`);
+        if (!res.ok) return;
+        
+        const data = await res.json();
+        setS(prev => ({
+          ...prev,
+          appName: data.app_name || prev.appName,
+          supportEmail: data.support_email || prev.supportEmail,
+          supportPhone: data.support_number || prev.supportPhone,
+        }));
+        
+        setLogoPreview(buildImageUrl(data.logo));
+        setFaviconPreview(buildImageUrl(data.favicon));
+      } catch (err) {
+        console.error("Failed to fetch app settings");
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "favicon") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (type === "logo") {
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file)); // Show local preview instantly
+    } else {
+      setFaviconFile(file);
+      setFaviconPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    
+    const formData = new FormData();
+    formData.append("app_name", s.appName);
+    
+    if (s.supportEmail) formData.append("support_email", s.supportEmail);
+    if (s.supportPhone) formData.append("support_number", s.supportPhone);
+    
+    if (logoFile) formData.append("logo", logoFile);
+    if (faviconFile) formData.append("favicon", faviconFile);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/app-settings/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to save settings");
+      
+      const data = await res.json();
+      
+      // Update previews with the newly returned URLs from backend
+      if (data.logo) setLogoPreview(buildImageUrl(data.logo));
+      if (data.favicon) setFaviconPreview(buildImageUrl(data.favicon));
+      
+      // Clear file objects
+      setLogoFile(null);
+      setFaviconFile(null);
+      
+      toast.success("Settings saved successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Unable to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
       <PageHeader title="App Settings" subtitle="Platform configuration center"
         action={<div className="flex gap-2">
           <button onClick={() => { setS(DEFAULTS); toast.success("Reset to defaults"); }} className="glass rounded-xl px-4 py-2 text-sm flex items-center gap-2"><RotateCcw className="h-4 w-4" />Reset</button>
-          <button onClick={() => toast.success("Settings saved")} className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold shadow-glow flex items-center gap-2"><Save className="h-4 w-4" />Save</button>
+          <button onClick={handleSave} disabled={saving} className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold shadow-glow flex items-center gap-2 disabled:opacity-50">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>} />
 
       <div className="grid lg:grid-cols-[220px_1fr] gap-4">
@@ -63,8 +159,29 @@ function Page() {
           {tab === "general" && <div>
             <h3 className="font-bold mb-2">General Settings</h3>
             <Row label="App Name"><I value={s.appName} onChange={(e: any) => setS({ ...s, appName: e.target.value })} /></Row>
-            <Row label="Logo"><button className="glass rounded-xl px-3 py-2 text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload Logo</button></Row>
-            <Row label="Favicon"><button className="glass rounded-xl px-3 py-2 text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload Favicon</button></Row>
+            
+            {/* Logo Upload & Preview */}
+            <Row label="Logo">
+              <div className="flex items-center gap-3">
+                <label className="glass rounded-xl px-3 py-2 text-sm flex items-center gap-2 cursor-pointer hover:bg-white/5">
+                  <Upload className="h-4 w-4" /> Upload Logo
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, "logo")} />
+                </label>
+                {logoPreview && <img src={logoPreview} alt="Logo Preview" className="h-8 w-8 rounded-lg object-cover bg-glass" />}
+              </div>
+            </Row>
+
+            {/* Favicon Upload & Preview */}
+            <Row label="Favicon">
+              <div className="flex items-center gap-3">
+                <label className="glass rounded-xl px-3 py-2 text-sm flex items-center gap-2 cursor-pointer hover:bg-white/5">
+                  <Upload className="h-4 w-4" /> Upload Favicon
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, "favicon")} />
+                </label>
+                {faviconPreview && <img src={faviconPreview} alt="Favicon Preview" className="h-8 w-8 rounded-lg object-cover bg-glass" />}
+              </div>
+            </Row>
+
             <Row label="Support Email"><I value={s.supportEmail} onChange={(e: any) => setS({ ...s, supportEmail: e.target.value })} /></Row>
             <Row label="Support Number"><I value={s.supportPhone} onChange={(e: any) => setS({ ...s, supportPhone: e.target.value })} /></Row>
           </div>}
