@@ -21,6 +21,7 @@ const groups = [
       { to: "/admin/customers", icon: Users, label: "Customers" },
       { to: "/admin/creators", icon: UserCog, label: "Creators" },
       { to: "/admin/kyc", icon: ShieldCheck, label: "KYC Approvals" },
+      { to: "/admin/coins", icon: ShieldCheck, label: "Add Coins Details" },
     ],
   },
   {

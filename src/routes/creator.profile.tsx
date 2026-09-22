@@ -14,26 +14,58 @@ function P() {
   const token = useAuth((s) => s.token);
   const update = useAuth((s) => s.updateUser);
   
-  const [bio, setBio] = useState("Let's vibe! Music, movies & midnight chats 🌙");
+  const [bio, setBio] = useState("");
   const [name, setName] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync local state when user data is loaded from auth context
+  // Fetch the latest user details from API on mount
   useEffect(() => {
-    if (user) {
-      setName(user.display_name || user.name || "");
-      setBio(user.bio || "Let's vibe! Music, movies & midnight chats 🌙");
-      
-      // Construct image URL if user has a profile photo
-      if (user.profile_photo) {
-        const cleanPath = user.profile_photo.replace(/\\/g, '/'); // Replace backslashes with forward slashes
-        setPhotoPreview(`${API_BASE_URL}/${cleanPath}`);
+    const fetchUserDetails = async () => {
+      if (!user?.user_id) {
+        setIsLoading(false);
+        return;
       }
-    }
-  }, [user]);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/users/${user.user_id}`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (response.ok) {
+          const resData = await response.json();
+          const userData = resData.data || resData; 
+          
+          setName(userData.display_name || "");
+          setBio(userData.bio || "");
+          
+          if (userData.profile_photo) {
+            // 1. Replace Windows backslashes with forward slashes
+            let cleanPath = userData.profile_photo.replace(/\\/g, '/');
+            // 2. Remove leading slash if present to avoid double slashes (http://...//uploads)
+            if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+            // 3. Encode URI components to handle spaces and parentheses safely
+            const encodedPath = encodeURI(cleanPath);
+            
+            setPhotoPreview(`${API_BASE_URL}/${encodedPath}`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user details:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserDetails();
+  }, [user, token]);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,7 +89,6 @@ function P() {
       formData.append("display_name", name);
       formData.append("bio", bio);
       
-      // Only append photo if a new one was selected
       if (photo) {
         formData.append("profile_photo", photo);
       }
@@ -65,7 +96,6 @@ function P() {
       const response = await fetch(`${API_BASE_URL}/users/${user.user_id}`, {
         method: "PUT",
         headers: {
-          // Do not set Content-Type, browser handles FormData boundaries
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: formData,
@@ -77,7 +107,6 @@ function P() {
         throw new Error(data.detail || data.message || "Failed to update profile");
       }
 
-      // Update local auth context if your store supports it
       if (update) {
         update({ 
           ...user, 
@@ -95,6 +124,14 @@ function P() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader title="Profile Setup" subtitle="How customers see you" />
@@ -110,9 +147,17 @@ function P() {
         <div className="flex items-center gap-4">
           <div className="relative h-20 w-20 rounded-2xl bg-gradient-primary flex items-center justify-center text-3xl font-bold overflow-hidden">
             {photoPreview ? (
-              <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+              <img 
+                src={photoPreview} 
+                alt="Profile" 
+                className="w-full h-full object-cover" 
+                // Fallback if the image URL is broken or if the file was a PDF
+                onError={() => setPhotoPreview(null)} 
+              />
             ) : (
-              name.charAt(0).toUpperCase()
+              <span className="text-white">
+                {name.charAt(0).toUpperCase() || "?"}
+              </span>
             )}
           </div>
           <button 

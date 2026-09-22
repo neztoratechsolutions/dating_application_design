@@ -22,6 +22,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAdsRouteImport } from './routes/admin.ads'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminChatsRouteImport } from './routes/admin.chats'
+import { Route as AdminCoinsRouteImport } from './routes/admin.coins'
 import { Route as AdminCreatorsRouteImport } from './routes/admin.creators'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminFraudRouteImport } from './routes/admin.fraud'
@@ -145,6 +146,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
 const AdminChatsRoute = AdminChatsRouteImport.update({
   id: '/chats',
   path: '/chats',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCoinsRoute = AdminCoinsRouteImport.update({
+  id: '/coins',
+  path: '/coins',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCreatorsRoute = AdminCreatorsRouteImport.update({
@@ -456,6 +462,7 @@ export interface FileRoutesByFullPath {
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/chats': typeof AdminChatsRoute
+  '/admin/coins': typeof AdminCoinsRoute
   '/admin/creators': typeof AdminCreatorsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/fraud': typeof AdminFraudRoute
@@ -526,6 +533,7 @@ export interface FileRoutesByTo {
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/chats': typeof AdminChatsRoute
+  '/admin/coins': typeof AdminCoinsRoute
   '/admin/creators': typeof AdminCreatorsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/fraud': typeof AdminFraudRoute
@@ -601,6 +609,7 @@ export interface FileRoutesById {
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/chats': typeof AdminChatsRoute
+  '/admin/coins': typeof AdminCoinsRoute
   '/admin/creators': typeof AdminCreatorsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/fraud': typeof AdminFraudRoute
@@ -677,6 +686,7 @@ export interface FileRouteTypes {
     | '/admin/ads'
     | '/admin/analytics'
     | '/admin/chats'
+    | '/admin/coins'
     | '/admin/creators'
     | '/admin/customers'
     | '/admin/fraud'
@@ -747,6 +757,7 @@ export interface FileRouteTypes {
     | '/admin/ads'
     | '/admin/analytics'
     | '/admin/chats'
+    | '/admin/coins'
     | '/admin/creators'
     | '/admin/customers'
     | '/admin/fraud'
@@ -821,6 +832,7 @@ export interface FileRouteTypes {
     | '/admin/ads'
     | '/admin/analytics'
     | '/admin/chats'
+    | '/admin/coins'
     | '/admin/creators'
     | '/admin/customers'
     | '/admin/fraud'
@@ -986,6 +998,13 @@ declare module '@tanstack/react-router' {
       path: '/chats'
       fullPath: '/admin/chats'
       preLoaderRoute: typeof AdminChatsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/coins': {
+      id: '/admin/coins'
+      path: '/coins'
+      fullPath: '/admin/coins'
+      preLoaderRoute: typeof AdminCoinsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/creators': {
@@ -1408,6 +1427,7 @@ interface AdminRouteChildren {
   AdminAdsRoute: typeof AdminAdsRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminChatsRoute: typeof AdminChatsRoute
+  AdminCoinsRoute: typeof AdminCoinsRoute
   AdminCreatorsRoute: typeof AdminCreatorsRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminFraudRoute: typeof AdminFraudRoute
@@ -1431,6 +1451,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAdsRoute: AdminAdsRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminChatsRoute: AdminChatsRoute,
+  AdminCoinsRoute: AdminCoinsRoute,
   AdminCreatorsRoute: AdminCreatorsRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminFraudRoute: AdminFraudRoute,

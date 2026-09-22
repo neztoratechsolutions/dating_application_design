@@ -22,6 +22,7 @@ function Gallery() {
   const [imgs, setImgs] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_IMAGES = 5;
@@ -117,11 +118,37 @@ function Gallery() {
     }
   };
 
-  const handleRemove = (idToRemove: number) => {
-    // Note: This only removes it from the local UI state.
-    // If you have a DELETE API endpoint, you would call it here.
-    setImgs(imgs.filter((img) => img.id !== idToRemove));
-    toast("Removed from view");
+  const handleRemove = async (idToRemove: number) => {
+    if (!user?.user_id) {
+      toast.error("Authentication error. Please log in again.");
+      return;
+    }
+
+    setDeletingId(idToRemove);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery/user/${user.user_id}/${idToRemove}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || "Failed to delete photo");
+      }
+
+      // Remove from local state only after successful API deletion
+      setImgs((prev) => prev.filter((img) => img.id !== idToRemove));
+      toast.success("Photo deleted successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete photo. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (isLoading) {
@@ -150,9 +177,14 @@ function Gallery() {
             <img src={img.url} alt={`Gallery ${img.id}`} className="w-full h-full object-cover" />
             <button 
               onClick={() => handleRemove(img.id)} 
-              className="absolute top-2 right-2 rounded-full bg-destructive/80 p-1 opacity-0 group-hover:opacity-100 transition"
+              disabled={deletingId === img.id}
+              className="absolute top-2 right-2 rounded-full bg-destructive/80 p-1 opacity-0 group-hover:opacity-100 transition disabled:cursor-wait"
             >
-              <X className="h-3 w-3 text-white" />
+              {deletingId === img.id ? (
+                <Loader2 className="h-3 w-3 text-white animate-spin" />
+              ) : (
+                <X className="h-3 w-3 text-white" />
+              )}
             </button>
           </div>
         ))}
