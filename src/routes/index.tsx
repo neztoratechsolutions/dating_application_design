@@ -2,18 +2,47 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Phone, Video, MessageCircle, Shield, Star, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({ component: Landing });
+
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000";
 
 function Landing() {
   const user = useAuth((s) => s.user);
   const navigate = useNavigate();
+  
+  const [stats, setStats] = useState({
+    user_count: 0,
+    creator_count: 0,
+    overall_rating: 0,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
   useEffect(() => {
     if (user) {
       navigate({ to: user.role === "creator" ? "/creator" : user.role === "admin" ? "/admin" : "/app" });
     }
   }, [user, navigate]);
+
+  // Fetch platform stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/count/`);
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -78,10 +107,14 @@ function Landing() {
           ))}
         </div>
 
+        {/* Dynamic Platform Stats */}
         <div className="mt-12 flex items-center justify-center gap-6 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5"><Star className="h-3.5 w-3.5 text-warning fill-warning" /> 4.8 rating</div>
-          <div>1.8M+ users</div>
-          <div>4.8K+ creators</div>
+          <div className="flex items-center gap-1.5">
+            <Star className="h-3.5 w-3.5 text-warning fill-warning" /> 
+            {isLoadingStats ? "Loading..." : stats.overall_rating > 0 ? `${stats.overall_rating.toFixed(1)} rating` : "New platform!"}
+          </div>
+          <div>{isLoadingStats ? "..." : `${stats.user_count.toLocaleString()} users`}</div>
+          <div>{isLoadingStats ? "..." : `${stats.creator_count.toLocaleString()} creators`}</div>
         </div>
 
         <div className="mt-12 text-xs text-muted-foreground space-x-4">

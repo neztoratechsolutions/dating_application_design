@@ -40,40 +40,36 @@ function SignupPage() {
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
 
   const proceed = () => {
-    // Validation including gender and state_id
     if (!form.name || !form.mobile || !form.email || !form.password || !form.state_id || !form.gender) {
       return toast.error("Fill all required fields");
     }
     setShowAgreement(true);
   };
 
-  const finish = async () => {
+    const finish = async () => {
     if (!agree) return toast.error("Please accept the agreement");
     
     setIsSubmitting(true);
 
-    // Construct FormData for multipart/form-data request
-    const formData = new FormData();
-    formData.append("display_name", form.name);
-    formData.append("phone", form.mobile);
-    formData.append("email", form.email);
-    formData.append("password", form.password);
-    formData.append("state_id", form.state_id);
-    formData.append("gender", form.gender);
-    formData.append("role", role);
-    formData.append("bio", ""); 
-    formData.append("description", ""); 
-
-    if (profilePhoto) {
-      formData.append("profile_photo", profilePhoto);
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/users/users`, {
+      // Send standard JSON instead of FormData
+      const response = await fetch(`${API_BASE_URL}/users/`, {
         method: "POST",
-        body: formData, 
-        // Do NOT set "Content-Type" header here. 
-        // The browser automatically sets it to "multipart/form-data" with the correct boundary.
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          display_name: form.name,
+          phone: form.mobile,
+          email: form.email,
+          password: form.password,
+          state_id: Number(form.state_id), // Ensure this is an integer
+          gender: form.gender,
+          bio: "", 
+          description: "",
+          // Sending the filename as a string since the schema expects a string.
+          profile_photo: profilePhoto ? profilePhoto.name : "",
+        }),
       });
 
       const data = await response.json();
@@ -82,7 +78,7 @@ function SignupPage() {
         throw new Error(data.detail || "Failed to create account");
       }
 
-      // Pass the returned user data to your auth store
+      // Pass the returned user data and selected role to your auth store
       signup({ ...data, role });
       toast.success("Account created! 🎉");
       navigate({ to: "/verify-otp" });
@@ -103,11 +99,8 @@ function SignupPage() {
         }
         const data = await response.json();
         
-        // Handle if API returns array directly or an object containing array
         const statesArray = Array.isArray(data) ? data : (data.states || []);
         setStates(statesArray);
-        
-        // Removed auto-selecting the first state so "Select State" shows by default
       } catch (error) {
         console.error(error);
         toast.error("Unable to load states");

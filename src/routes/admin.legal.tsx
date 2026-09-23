@@ -68,13 +68,25 @@ function Page() {
   }, [isModalOpen, editingId, isFaq]);
 
   // --- API CALLS ---
+   // --- API CALLS ---
   const fetchList = async () => {
     setLoading(true);
     if (!activePage) return;
     try {
       const res = await fetch(`${API_BASE_URL}/${activePage.endpoint}/`);
-      if (!res.ok) throw new Error("Failed to fetch data");
       const data = await res.json();
+      
+      // If the API returns an error (like 404 "No data found"), 
+      // just silently set the list to empty instead of throwing an error.
+      if (!res.ok) {
+        if (data?.detail === "No data found" || res.status === 404) {
+          setList([]);
+        } else {
+          throw new Error(data?.detail || "Failed to fetch data");
+        }
+        return;
+      }
+      
       setList(Array.isArray(data) ? data : (data?.data || []));
     } catch (err: any) {
       toast.error(err.message);
