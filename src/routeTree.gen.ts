@@ -28,6 +28,7 @@ import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminFraudRouteImport } from './routes/admin.fraud'
 import { Route as AdminGamesRouteImport } from './routes/admin.games'
 import { Route as AdminGiftsRouteImport } from './routes/admin.gifts'
+import { Route as AdminHelpsupportRouteImport } from './routes/admin.helpsupport'
 import { Route as AdminKycRouteImport } from './routes/admin.kyc'
 import { Route as AdminLegalRouteImport } from './routes/admin.legal'
 import { Route as AdminLiveRouteImport } from './routes/admin.live'
@@ -176,6 +177,11 @@ const AdminGamesRoute = AdminGamesRouteImport.update({
 const AdminGiftsRoute = AdminGiftsRouteImport.update({
   id: '/gifts',
   path: '/gifts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHelpsupportRoute = AdminHelpsupportRouteImport.update({
+  id: '/helpsupport',
+  path: '/helpsupport',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminKycRoute = AdminKycRouteImport.update({
@@ -468,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/admin/fraud': typeof AdminFraudRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/gifts': typeof AdminGiftsRoute
+  '/admin/helpsupport': typeof AdminHelpsupportRoute
   '/admin/kyc': typeof AdminKycRoute
   '/admin/legal': typeof AdminLegalRoute
   '/admin/live': typeof AdminLiveRoute
@@ -539,6 +546,7 @@ export interface FileRoutesByTo {
   '/admin/fraud': typeof AdminFraudRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/gifts': typeof AdminGiftsRoute
+  '/admin/helpsupport': typeof AdminHelpsupportRoute
   '/admin/kyc': typeof AdminKycRoute
   '/admin/legal': typeof AdminLegalRoute
   '/admin/live': typeof AdminLiveRoute
@@ -615,6 +623,7 @@ export interface FileRoutesById {
   '/admin/fraud': typeof AdminFraudRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/gifts': typeof AdminGiftsRoute
+  '/admin/helpsupport': typeof AdminHelpsupportRoute
   '/admin/kyc': typeof AdminKycRoute
   '/admin/legal': typeof AdminLegalRoute
   '/admin/live': typeof AdminLiveRoute
@@ -692,6 +701,7 @@ export interface FileRouteTypes {
     | '/admin/fraud'
     | '/admin/games'
     | '/admin/gifts'
+    | '/admin/helpsupport'
     | '/admin/kyc'
     | '/admin/legal'
     | '/admin/live'
@@ -763,6 +773,7 @@ export interface FileRouteTypes {
     | '/admin/fraud'
     | '/admin/games'
     | '/admin/gifts'
+    | '/admin/helpsupport'
     | '/admin/kyc'
     | '/admin/legal'
     | '/admin/live'
@@ -838,6 +849,7 @@ export interface FileRouteTypes {
     | '/admin/fraud'
     | '/admin/games'
     | '/admin/gifts'
+    | '/admin/helpsupport'
     | '/admin/kyc'
     | '/admin/legal'
     | '/admin/live'
@@ -1040,6 +1052,13 @@ declare module '@tanstack/react-router' {
       path: '/gifts'
       fullPath: '/admin/gifts'
       preLoaderRoute: typeof AdminGiftsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/helpsupport': {
+      id: '/admin/helpsupport'
+      path: '/helpsupport'
+      fullPath: '/admin/helpsupport'
+      preLoaderRoute: typeof AdminHelpsupportRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/kyc': {
@@ -1433,6 +1452,7 @@ interface AdminRouteChildren {
   AdminFraudRoute: typeof AdminFraudRoute
   AdminGamesRoute: typeof AdminGamesRoute
   AdminGiftsRoute: typeof AdminGiftsRoute
+  AdminHelpsupportRoute: typeof AdminHelpsupportRoute
   AdminKycRoute: typeof AdminKycRoute
   AdminLegalRoute: typeof AdminLegalRoute
   AdminLiveRoute: typeof AdminLiveRoute
@@ -1457,6 +1477,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFraudRoute: AdminFraudRoute,
   AdminGamesRoute: AdminGamesRoute,
   AdminGiftsRoute: AdminGiftsRoute,
+  AdminHelpsupportRoute: AdminHelpsupportRoute,
   AdminKycRoute: AdminKycRoute,
   AdminLegalRoute: AdminLegalRoute,
   AdminLiveRoute: AdminLiveRoute,

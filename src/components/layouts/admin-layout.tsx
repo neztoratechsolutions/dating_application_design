@@ -51,7 +51,8 @@ const groups = [
       { to: "/admin/ads", icon: Megaphone, label: "Ads" },
       { to: "/admin/settings", icon: Settings, label: "App Settings" },
       { to: "/admin/legal", icon: FileText, label: "Legal Pages" },
-      { to: "/admin/support", icon: LifeBuoy, label: "Support" },
+      { to: "/admin/support", icon: LifeBuoy, label: "Support Ticket" },
+      { to: "/admin/helpsupport", icon: LifeBuoy, label: "Help and Support" },
     ],
   },
 ];
