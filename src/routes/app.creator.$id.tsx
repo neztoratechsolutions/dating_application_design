@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-store";
 
-// 1. Updated TypeScript interface to match the Creator API response
 interface CreatorApiResponse {
   status_code: number;
   message: string;
@@ -34,7 +33,6 @@ interface CreatorApiResponse {
       voice_call_amount: number;
       video_call_amount: number;
     };
-    // FIXED: Gallery is an array of objects, not strings
     gallery: {
       id: number;
       photo: string;
@@ -42,13 +40,11 @@ interface CreatorApiResponse {
   };
 }
 
-// Interface for your Follow API response
 interface FollowStatusResponse {
   following: boolean;
   follow_id: number | null;
 }
 
-// Helper function to construct image URLs using the Vite env variable
 const getMediaUrl = (path: string | null | undefined) => {
   const baseUrl = import.meta.env.VITE_BASE_URL || "";
   if (!path) return "/default-avatar.png";
@@ -84,13 +80,14 @@ function CreatorProfile() {
   const { creator } = Route.useLoaderData();
   const navigate = useNavigate();
   
-  const [liked, setLiked] = useState(false);
   const [followed, setFollowed] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [followId, setFollowId] = useState<number | null>(null);
-  
-  // NEW: State for Instagram-style popup
   const [showUnfollowPopup, setShowUnfollowPopup] = useState(false);
+  
+  // Favorite states
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isFavLoading, setIsFavLoading] = useState(false);
   
   const user = useAuth((state) => state.user);
 
@@ -106,16 +103,16 @@ function CreatorProfile() {
   const stateName = creator.state?.name || "Unknown";
   const tags = ["Creator", creator.role]; 
 
-  const followerId = Number(user?.user_id || user?.id);
+  const customerId = Number(user?.user_id || user?.id);
 
   useEffect(() => {
-    if (!followerId || followerId === creator.id) return;
+    if (!customerId || customerId === creator.id) return;
 
     const checkFollowStatus = async () => {
       try {
         const baseUrl = import.meta.env.VITE_BASE_URL;
         const response = await fetch(
-          `${baseUrl}/follow-details/status?follower_id=${followerId}&following_id=${creator.id}`
+          `${baseUrl}/follow-details/status?follower_id=${customerId}&following_id=${creator.id}`
         );
 
         if (!response.ok) return;
@@ -130,13 +127,14 @@ function CreatorProfile() {
     };
 
     checkFollowStatus();
-  }, [creator.id, followerId]);
+    // Removed checkFavoriteStatus() because the backend doesn't support GET /favorites
+  }, [creator.id, customerId]);
 
   // --- Handle Follow API Request ---
   const handleFollowClick = async () => {
     if (followed) return;
 
-    if (!followerId) {
+    if (!customerId) {
       toast.error("Please login first");
       return;
     }
@@ -153,7 +151,7 @@ function CreatorProfile() {
         },
         body: JSON.stringify({
           following_id: creator.id,
-          follower_id: followerId,
+          follower_id: customerId,
           follow_status: "following",
         }),
       });
@@ -198,12 +196,82 @@ function CreatorProfile() {
 
       setFollowed(false);
       setFollowId(null);
-      setShowUnfollowPopup(false); // Close popup on success
+      setShowUnfollowPopup(false); 
       toast.success("Unfollowed successfully");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setIsFollowLoading(false);
+    }
+  };
+
+  // --- Handle Favorite (Heart) API Request ---
+  const handleFavoriteClick = async () => {
+    if (isFavLoading) return;
+
+    if (!customerId) {
+      toast.error("Please login first");
+      return;
+    }
+
+    setIsFavLoading(true);
+
+    try {
+      const baseUrl = import.meta.env.VITE_BASE_URL;
+
+      if (!isFavorite) {
+        // Add to Favorites
+        const response = await fetch(`${baseUrl}/favorites/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            creator_id: creator.id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // FIX: If backend says "already in favourites", fill the heart and show message
+          if (data.detail && data.detail.toLowerCase().includes("already")) {
+            setIsFavorite(true); // Fill heart with color
+            toast.info("Already in your favourites"); // Tell the user
+            return;
+          }
+          throw new Error(data.detail || "Failed to add to favorites");
+        }
+
+        setIsFavorite(true);
+        toast.success("Added to favorites");
+      } else {
+        // Remove from Favorites
+        const response = await fetch(`${baseUrl}/favorites/`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            creator_id: creator.id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to remove from favorites");
+        }
+
+        setIsFavorite(false);
+        toast.success("Removed from favorites");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsFavLoading(false);
     }
   };
 
@@ -234,12 +302,11 @@ function CreatorProfile() {
           </div>
         </div>
 
-        {/* --- UPDATED FOLLOW/UNFOLLOW AREA --- */}
+        {/* --- FOLLOW/UNFOLLOW & FAVORITES AREA --- */}
         <div className="relative flex gap-2 mt-5">
           <button
             onClick={() => {
               if (followed) {
-                // If already following, open the Instagram popup instead of unfollowing immediately
                 setShowUnfollowPopup(true);
               } else {
                 handleFollowClick();
@@ -256,20 +323,26 @@ function CreatorProfile() {
             {isFollowLoading ? "Loading..." : followed ? "Following" : "Follow"}
           </button>
 
-          <button onClick={() => { setLiked(!liked); }} className="rounded-xl glass px-4">
-            <Heart className={`h-5 w-5 ${liked ? "fill-destructive text-destructive" : ""}`} />
+          {/* Favorite Heart Button */}
+          <button 
+            onClick={handleFavoriteClick} 
+            disabled={isFavLoading}
+            className="rounded-xl glass px-4 disabled:opacity-50"
+          >
+            <Heart className={`h-5 w-5 transition-all ${isFavorite ? "fill-destructive text-destructive" : "text-foreground"}`} />
           </button>
+
           <GiftButton creatorId={creator.id} creatorName={name} className="rounded-xl px-4 py-2.5" />
 
           {/* --- INSTAGRAM STYLE UNFOLLOW POPUP --- */}
           {showUnfollowPopup && (
             <div 
               className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl z-10"
-              onClick={() => setShowUnfollowPopup(false)} // Clicking outside closes popup
+              onClick={() => setShowUnfollowPopup(false)}
             >
               <div 
                 className="bg-dark-2 border border-white/10 rounded-2xl w-44 overflow-hidden text-center shadow-xl"
-                onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing it
+                onClick={(e) => e.stopPropagation()}
               >
                 <div className="p-4 border-b border-white/10">
                   <img src={avatar} alt={name} className="w-12 h-12 rounded-full object-cover mx-auto mb-2" />
@@ -320,7 +393,6 @@ function CreatorProfile() {
 
       <h3 className="font-semibold mt-6 mb-3">Gallery</h3>
       <div className="grid grid-cols-3 gap-2">
-        {/* FIXED: Using img.photo instead of img, and img.id for the key */}
         {creator.gallery && creator.gallery.length > 0 ? (
           creator.gallery.map((img, i) => (
             <img key={img.id || i} src={getMediaUrl(img.photo)} alt={`Gallery ${i}`} className="aspect-square rounded-xl object-cover" />

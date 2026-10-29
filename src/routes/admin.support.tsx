@@ -1,43 +1,34 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { GlassCard, PageHeader } from "@/components/ui-kit";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { TicketIcon, AlertTriangle, CheckCircle2, Clock, Search, Send, Paperclip } from "lucide-react";
 
-const SUBJECTS = ["Payment not received", "Coin not credited", "KYC rejected", "Video call issue", "Refund request", "App crash", "Profile update", "Withdrawal pending"];
-const NAMES = ["Rahul Sharma", "Priya Patel", "Karan Mehta", "Ananya Iyer", "Vikram Singh", "Neha Roy", "Sneha Kapoor", "Arjun Verma"];
-const TYPES = ["Customer", "Creator"];
-const PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
+const PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
 const STATUSES = ["Open", "In Progress", "Resolved", "Closed"] as const;
 
 type Ticket = {
-  id: string; user: string; userType: string; subject: string;
-  priority: typeof PRIORITIES[number]; status: typeof STATUSES[number]; created: string;
+  id: string; 
+  user: string; 
+  userPhone: string;
+  userType: string; 
+  subject: string;
+  category: string;
+  priority: string; 
+  status: string; 
+  created: string;
   messages: { from: "user" | "admin"; text: string; time: string }[];
   notes: string;
 };
-
-const seed: Ticket[] = Array.from({ length: 30 }).map((_, i) => ({
-  id: `TKT-${10000 + i}`,
-  user: NAMES[i % NAMES.length],
-  userType: TYPES[i % 2],
-  subject: SUBJECTS[i % SUBJECTS.length],
-  priority: PRIORITIES[i % 4],
-  status: STATUSES[i % 4],
-  created: `2026-06-${String(8 - (i % 8)).padStart(2, "0")} ${String(9 + (i % 10)).padStart(2, "0")}:${String((i * 7) % 60).padStart(2, "0")}`,
-  messages: [
-    { from: "user", text: `Hi, I have an issue with ${SUBJECTS[i % SUBJECTS.length].toLowerCase()}. Please help.`, time: "10:30 AM" },
-    { from: "admin", text: "Hi, we are looking into this. Could you share more details?", time: "10:45 AM" },
-  ],
-  notes: "Internal: verify wallet ledger before resolving.",
-}));
 
 const PRI_TONE: Record<string, string> = {
   Low: "bg-slate-500/15 text-slate-300 border-slate-500/30",
   Medium: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   High: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  Critical: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  Urgent: "bg-rose-500/15 text-rose-300 border-rose-500/30",
 };
 const STATUS_TONE: Record<string, string> = {
   Open: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -54,17 +45,64 @@ function Kpi({ icon: Icon, label, value, tone }: any) {
 }
 
 function Page() {
-  const [list, setList] = useState<Ticket[]>(seed);
+  const [list, setList] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [search, setSearch] = useState("");
   const [priF, setPriF] = useState("all");
   const [statusF, setStatusF] = useState("all");
   const [active, setActive] = useState<Ticket | null>(null);
   const [reply, setReply] = useState("");
 
+  // Fetch Tickets from API
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${API_BASE_URL}/support/admin/tickets`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        
+        if (!response.ok) throw new Error("Failed to fetch tickets");
+        
+        const resData = await response.json();
+        const ticketsData = resData.data || [];
+
+        // Map API data to frontend Ticket type
+        const mappedTickets: Ticket[] = ticketsData.map((t: any) => ({
+          id: t.ticket_id,
+          user: t.user_name || `User #${t.user_id}`,
+          userPhone: t.user_phone || "N/A",
+          userType: "Customer",
+          subject: t.subject,
+          category: t.category || "N/A",
+          priority: t.priority,
+          status: t.status,
+          created: new Date(t.created_at).toLocaleString(),
+          messages: [
+            { from: "user", text: `Ticket created regarding: ${t.subject}`, time: new Date(t.created_at).toLocaleTimeString() }
+          ],
+          notes: "",
+        }));
+
+        setList(mappedTickets);
+      } catch (error) {
+        console.error("Error fetching tickets:", error);
+        toast.error("Failed to load tickets");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
   const open = list.filter((t) => t.status === "Open").length;
   const pending = list.filter((t) => t.status === "In Progress").length;
   const resolved = list.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
-  const high = list.filter((t) => t.priority === "High" || t.priority === "Critical").length;
+  const high = list.filter((t) => t.priority === "High" || t.priority === "Urgent").length;
 
   const filtered = useMemo(() => list.filter((t) => {
     if (search && !t.user.toLowerCase().includes(search.toLowerCase()) && !t.id.toLowerCase().includes(search.toLowerCase())) return false;
@@ -102,41 +140,69 @@ function Page() {
         <Kpi icon={AlertTriangle} label="High Priority" value={high} tone="bg-rose-500/15 text-rose-300" />
       </div>
 
-      <GlassCard>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 flex items-center gap-2 glass rounded-xl px-3 py-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input placeholder="Search ticket ID or user" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-transparent text-sm outline-none" />
-          </div>
-          <select value={priF} onChange={(e) => setPriF(e.target.value)} className="glass rounded-xl px-3 py-2 text-xs outline-none">
-            <option value="all">All Priority</option>{PRIORITIES.map((p) => <option key={p}>{p}</option>)}
-          </select>
-          <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="glass rounded-xl px-3 py-2 text-xs outline-none">
-            <option value="all">All Status</option>{STATUSES.map((p) => <option key={p}>{p}</option>)}
-          </select>
-        </div>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr>
-              <th className="text-left p-2">Ticket</th><th className="text-left p-2">User</th>
-              <th className="text-left p-2">Subject</th><th className="p-2">Priority</th>
-              <th className="p-2">Status</th><th className="text-left p-2">Created</th>
-            </tr></thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr key={t.id} onClick={() => setActive(t)} className="border-t border-white/5 hover:bg-white/[0.05] cursor-pointer">
-                  <td className="p-2 font-mono text-xs">{t.id}</td>
-                  <td className="p-2"><div className="font-medium">{t.user}</div><div className="text-[10px] text-muted-foreground">{t.userType}</div></td>
-                  <td className="p-2">{t.subject}</td>
-                  <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded-full border text-[10px] ${PRI_TONE[t.priority]}`}>{t.priority}</span></td>
-                  <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded-full border text-[10px] ${STATUS_TONE[t.status]}`}>{t.status}</span></td>
-                  <td className="p-2 text-xs whitespace-nowrap">{t.created}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
+      <GlassCard> 
+  <div className="flex items-center gap-2 mb-3"> 
+    <div className="flex-1 flex items-center gap-2 glass rounded-xl px-3 py-2"> 
+      <Search className="h-4 w-4 text-muted-foreground" /> 
+      <input placeholder="Search ticket ID or user" value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-transparent text-sm outline-none" /> 
+    </div> 
+    
+    {/* FIX: Applied inline styles to force dark background and white text in the dropdown list */}
+    <select 
+      value={priF} 
+      onChange={(e) => setPriF(e.target.value)} 
+      className="glass rounded-xl px-3 py-2 text-xs outline-none"
+      style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}
+    > 
+      <option value="all" style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}>All Priority</option> 
+      {PRIORITIES.map((p) => <option key={p} value={p} style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}>{p}</option>)} 
+    </select> 
+    
+    {/* FIX: Applied inline styles to force dark background and white text in the dropdown list */}
+    <select 
+      value={statusF} 
+      onChange={(e) => setStatusF(e.target.value)} 
+      className="glass rounded-xl px-3 py-2 text-xs outline-none"
+      style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}
+    > 
+      <option value="all" style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}>All Status</option> 
+      {STATUSES.map((p) => <option key={p} value={p} style={{ backgroundColor: "#1e1e2e", color: "#ffffff" }}>{p}</option>)} 
+    </select> 
+  </div> 
+  
+  <div className="overflow-auto"> 
+    {loading ? ( 
+      <div className="p-4 text-center text-sm text-muted-foreground">Loading tickets...</div> 
+    ) : ( 
+      <table className="w-full text-sm"> 
+        <thead className="text-xs text-muted-foreground"><tr> 
+          <th className="text-left p-2">Ticket</th><th className="text-left p-2">User</th> 
+          <th className="text-left p-2">Mobile</th><th className="text-left p-2">Subject</th> 
+          <th className="text-left p-2">Category</th><th className="p-2">Priority</th> 
+          <th className="p-2">Status</th><th className="text-left p-2">Created</th> 
+        </tr></thead> 
+        <tbody> 
+          {filtered.length === 0 ? ( 
+            <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">No tickets found.</td></tr> 
+          ) : ( 
+            filtered.map((t) => ( 
+              <tr key={t.id} onClick={() => setActive(t)} className="border-t border-white/5 hover:bg-white/[0.05] cursor-pointer"> 
+                <td className="p-2 font-mono text-xs">{t.id}</td> 
+                <td className="p-2"><div className="font-medium">{t.user}</div><div className="text-[10px] text-muted-foreground">{t.userType}</div></td> 
+                <td className="p-2 text-xs whitespace-nowrap">{t.userPhone}</td> 
+                <td className="p-2">{t.subject}</td> 
+                <td className="p-2 text-xs">{t.category}</td> 
+                <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded-full border text-[10px] ${PRI_TONE[t.priority]}`}>{t.priority}</span></td> 
+                <td className="p-2 text-center"><span className={`px-2 py-0.5 rounded-full border text-[10px] ${STATUS_TONE[t.status]}`}>{t.status}</span></td> 
+                <td className="p-2 text-xs whitespace-nowrap">{t.created}</td> 
+              </tr> 
+            )) 
+          )} 
+        </tbody> 
+      </table> 
+    )} 
+  </div> 
+</GlassCard>
 
       <AnimatePresence>
         {active && (
@@ -171,7 +237,7 @@ function Page() {
                   </div>
                   <div className="mt-3">
                     <p className="text-xs text-muted-foreground mb-1">Internal Notes</p>
-                    <textarea defaultValue={active.notes} rows={2} className="w-full glass rounded-xl px-3 py-2 text-sm outline-none" />
+                    <textarea defaultValue={active.notes} rows={2} className="w-full glass bg-input text-foreground rounded-xl px-3 py-2 text-sm outline-none" />
                   </div>
                 </div>
 
@@ -179,12 +245,14 @@ function Page() {
                   <div className="glass rounded-xl p-3 text-sm">
                     <p className="text-xs text-muted-foreground mb-1">User Info</p>
                     <p className="font-medium">{active.user}</p>
-                    <p className="text-xs text-muted-foreground">{active.userType} · ID U-{1000 + parseInt(active.id.slice(-3))}</p>
+                    <p className="text-xs text-muted-foreground mt-1">📞 {active.userPhone}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Tag: {active.category}</p>
                   </div>
                   <div className="glass rounded-xl p-3">
                     <p className="text-xs text-muted-foreground mb-2">Change Priority</p>
-                    <select value={active.priority} onChange={(e) => setPri(e.target.value as any)} className="w-full glass rounded-lg px-2 py-1.5 text-xs outline-none">
-                      {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
+                    {/* FIX: Added bg-input text-foreground to select and options */}
+                    <select value={active.priority} onChange={(e) => setPri(e.target.value as any)} className="w-full glass bg-input text-foreground rounded-lg px-2 py-1.5 text-xs outline-none">
+                      {PRIORITIES.map((p) => <option key={p} className="bg-input text-foreground">{p}</option>)}
                     </select>
                   </div>
                   <div className="glass rounded-xl p-3 space-y-2">
