@@ -1,3 +1,4 @@
+
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-store";
 import { PageHeader } from "@/components/ui-kit";
@@ -10,12 +11,19 @@ export const Route = createFileRoute("/app/profile/edit")({
   component: EditProfile,
 });
 
+type ProfileForm = {
+  name: string;
+  email: string;
+  mobile: string;
+  state: string;
+};
+
 function EditProfile() {
   const user = useAuth((state) => state.user);
   const updateUser = useAuth((state) => state.updateUser);
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ProfileForm>({
     name: user?.name ?? "",
     email: user?.email ?? "",
     mobile: user?.mobile ?? "",
@@ -32,8 +40,8 @@ function EditProfile() {
   }, [user]);
 
   const handleChange = (
-    field: keyof typeof form,
-    value: string
+    field: keyof ProfileForm,
+    value: string,
   ) => {
     setForm((previous) => ({
       ...previous,
@@ -42,36 +50,46 @@ function EditProfile() {
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) {
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const mobile = form.mobile.trim();
+
+    if (!name) {
       toast.error("Please enter your name");
       return;
     }
 
-    if (!form.email.trim()) {
+    if (!email) {
       toast.error("Please enter your email");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    // Correct email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
       toast.error("Please enter a valid email address");
       return;
     }
 
-    if (!form.mobile.trim()) {
+    if (!mobile) {
       toast.error("Please enter your mobile number");
       return;
     }
 
     updateUser({
       ...form,
-      name: form.name.trim(),
-      email: form.email.trim(),
-      mobile: form.mobile.trim(),
+      name,
+      email,
+      mobile,
+      state: form.state,
     });
 
     toast.success("Profile updated successfully");
 
-    navigate({ to: "/app/profile" });
+    navigate({
+      to: "/app/profile",
+    });
   };
 
   return (
@@ -80,21 +98,29 @@ function EditProfile() {
 
       <button
         type="button"
-        onClick={() => navigate({ to: "/app/profile" })}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
+        onClick={() =>
+          navigate({
+            to: "/app/profile",
+          })
+        }
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Profile
       </button>
 
-      <div className="glass-strong rounded-3xl p-6 space-y-5">
+      <div className="glass-strong space-y-5 rounded-3xl p-6">
         <div>
-          <h2 className="text-lg font-bold">Personal Information</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="text-lg font-bold">
+            Personal Information
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
             Update your profile details below.
           </p>
         </div>
 
+        {/* Full Name */}
         <div>
           <label
             htmlFor="profile-name"
@@ -102,6 +128,7 @@ function EditProfile() {
           >
             Full Name
           </label>
+
           <input
             id="profile-name"
             type="text"
@@ -111,10 +138,11 @@ function EditProfile() {
             onChange={(event) =>
               handleChange("name", event.target.value)
             }
-            className="w-full glass rounded-xl px-4 py-3 text-sm mt-1 outline-none focus:ring-2 focus:ring-primary"
+            className="glass mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
+        {/* Email */}
         <div>
           <label
             htmlFor="profile-email"
@@ -122,6 +150,7 @@ function EditProfile() {
           >
             Email Address
           </label>
+
           <input
             id="profile-email"
             type="email"
@@ -131,10 +160,11 @@ function EditProfile() {
             onChange={(event) =>
               handleChange("email", event.target.value)
             }
-            className="w-full glass rounded-xl px-4 py-3 text-sm mt-1 outline-none focus:ring-2 focus:ring-primary"
+            className="glass mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
+        {/* Mobile */}
         <div>
           <label
             htmlFor="profile-mobile"
@@ -142,6 +172,7 @@ function EditProfile() {
           >
             Mobile Number
           </label>
+
           <input
             id="profile-mobile"
             type="tel"
@@ -151,10 +182,11 @@ function EditProfile() {
             onChange={(event) =>
               handleChange("mobile", event.target.value)
             }
-            className="w-full glass rounded-xl px-4 py-3 text-sm mt-1 outline-none focus:ring-2 focus:ring-primary"
+            className="glass mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
+        {/* State */}
         <div>
           <label
             htmlFor="profile-state"
@@ -162,13 +194,14 @@ function EditProfile() {
           >
             State
           </label>
+
           <select
             id="profile-state"
             value={form.state}
             onChange={(event) =>
               handleChange("state", event.target.value)
             }
-            className="w-full glass rounded-xl px-4 py-3 text-sm mt-1 outline-none focus:ring-2 focus:ring-primary"
+            className="glass mt-1 w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary"
           >
             {STATES.map((state) => (
               <option
@@ -182,19 +215,25 @@ function EditProfile() {
           </select>
         </div>
 
+        {/* Save */}
         <button
           type="button"
           onClick={handleSave}
-          className="w-full rounded-xl bg-gradient-primary py-3 font-semibold shadow-glow flex items-center justify-center gap-2 mt-3 hover:opacity-90 transition"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary py-3 font-semibold shadow-glow transition hover:opacity-90"
         >
           <Save className="h-4 w-4" />
           Save Changes
         </button>
 
+        {/* Cancel */}
         <button
           type="button"
-          onClick={() => navigate({ to: "/app/profile" })}
-          className="w-full rounded-xl glass py-3 font-medium hover:bg-glass-border transition"
+          onClick={() =>
+            navigate({
+              to: "/app/profile",
+            })
+          }
+          className="glass w-full rounded-xl py-3 font-medium transition hover:bg-glass-border"
         >
           Cancel
         </button>
