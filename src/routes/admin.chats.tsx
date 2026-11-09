@@ -1,95 +1,549 @@
+// import { createFileRoute } from "@tanstack/react-router";
+// import { useMemo, useState } from "react";
+// import { CREATORS, STATES } from "@/lib/mock-data";
+// import { GlassCard, PageHeader } from "@/components/ui-kit";
+// import {
+//   Search, MessageSquare, Flag, ShieldAlert, AlertTriangle, Eye,
+//   Ban, AlertCircle, UserX, Gift, ImageIcon, Filter, Calendar,
+// } from "lucide-react";
+// import { toast } from "sonner";
+
+// export const Route = createFileRoute("/admin/chats")({ component: ChatsPage });
+
+// const CUSTOMERS = [
+//   "Rahul Sharma","Vikram Singh","Amit Patel","Rohan Mehta","Karan Joshi",
+//   "Arjun Rao","Sahil Kapoor","Dev Iyer","Manish Roy","Yash Bose",
+//   "Aman Khan","Nikhil Pillai","Aditya Verma","Sameer Gupta","Tushar Jain",
+// ];
+
+// type Reason = "Harassment" | "Spam" | "Abuse" | "Fraud" | null;
+
+// interface Msg {
+//   id: number;
+//   from: "customer" | "creator" | "system";
+//   text?: string;
+//   image?: string;
+//   gift?: { name: string; coins: number };
+//   time: string;
+// }
+
+// interface Convo {
+//   id: string;
+//   customer: { name: string; avatar: string };
+//   creator: typeof CREATORS[number];
+//   last: string;
+//   time: string;
+//   reports: number;
+//   flagged: boolean;
+//   reason: Reason;
+//   state: string;
+//   date: string;
+//   unread: number;
+//   messages: Msg[];
+// }
+
+// const buildMessages = (i: number, customer: string, creator: string): Msg[] => {
+//   const base: Msg[] = [
+//     { id: 1, from: "system", text: "Chat session started", time: "10:00" },
+//     { id: 2, from: "customer", text: `Hi ${creator}! How are you?`, time: "10:01" },
+//     { id: 3, from: "creator", text: "Hey! I'm great, thanks 😊", time: "10:01" },
+//     { id: 4, from: "customer", text: "What are you up to today?", time: "10:02" },
+//     { id: 5, from: "creator", text: "Just chilling, watching a movie", time: "10:02" },
+//     { id: 6, from: "customer", image: `https://picsum.photos/seed/c${i}/300/200`, time: "10:03" },
+//     { id: 7, from: "creator", text: "Wow, nice pic!", time: "10:03" },
+//     { id: 8, from: "customer", gift: { name: "Rose", coins: 10 }, time: "10:04" },
+//     { id: 9, from: "creator", text: "Thank you so much for the rose! 🌹", time: "10:04" },
+//     { id: 10, from: "customer", text: "Can we talk on call later?", time: "10:05" },
+//     { id: 11, from: "creator", text: "Sure, around 8pm works for me", time: "10:05" },
+//     { id: 12, from: "system", text: "Customer sent a gift worth ₹50", time: "10:06" },
+//   ];
+//   if (i % 4 === 0) base.push({ id: 13, from: "customer", text: "You are amazing!", time: "10:07" });
+//   return base;
+// };
+
+// const CONVOS: Convo[] = CUSTOMERS.flatMap((cust, i) => {
+//   const creator = CREATORS[i % CREATORS.length];
+//   const reports = i % 5 === 0 ? (i % 3) + 1 : 0;
+//   const flagged = i % 6 === 0;
+//   const reason: Reason = reports > 0
+//     ? (["Harassment", "Spam", "Abuse", "Fraud"] as Reason[])[i % 4]
+//     : null;
+//   return [{
+//     id: `CH-${1000 + i}`,
+//     customer: { name: cust, avatar: `https://i.pravatar.cc/200?u=${encodeURIComponent(cust)}` },
+//     creator,
+//     last: ["Sure, around 8pm works", "You are amazing!", "Thanks for the gift 🌹", "Can we voice call?", "Goodnight ✨"][i % 5],
+//     time: ["2m", "10m", "1h", "3h", "yesterday"][i % 5],
+//     reports,
+//     flagged,
+//     reason,
+//     state: STATES[i % STATES.length],
+//     date: `2026-05-${String(28 - (i % 26)).padStart(2, "0")}`,
+//     unread: i % 3,
+//     messages: buildMessages(i, cust, creator.name),
+//   }];
+// });
+
+// const TONE_REASON: Record<string, string> = {
+//   Harassment: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+//   Spam: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+//   Abuse: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+//   Fraud: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+// };
+
+// function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: string }) {
+//   return (
+//     <GlassCard className="relative overflow-hidden">
+//       <div className={`absolute inset-0 bg-gradient-to-br opacity-50 pointer-events-none ${tone}`} />
+//       <div className="relative flex items-start justify-between">
+//         <div>
+//           <p className="text-xs text-muted-foreground">{label}</p>
+//           <p className="text-xl font-bold mt-1">{value}</p>
+//         </div>
+//         <Icon className="h-5 w-5 opacity-80" />
+//       </div>
+//     </GlassCard>
+//   );
+// }
+
+// function ChatsPage() {
+//   const [q, setQ] = useState("");
+//   const [filter, setFilter] = useState<"all" | "reported" | "flagged">("all");
+//   const [state, setState] = useState("all");
+//   const [date, setDate] = useState("");
+//   const [selected, setSelected] = useState<Convo | null>(CONVOS[0]);
+//   const [reportModal, setReportModal] = useState(false);
+
+//   const filtered = useMemo(() => CONVOS.filter((c) => {
+//     if (filter === "reported" && c.reports === 0) return false;
+//     if (filter === "flagged" && !c.flagged) return false;
+//     if (state !== "all" && c.state !== state) return false;
+//     if (date && c.date !== date) return false;
+//     if (q) {
+//       const s = q.toLowerCase();
+//       const inMsg = c.messages.some((m) => m.text?.toLowerCase().includes(s));
+//       if (!c.customer.name.toLowerCase().includes(s) && !c.creator.name.toLowerCase().includes(s) && !inMsg) return false;
+//     }
+//     return true;
+//   }), [q, filter, state, date]);
+
+//   const stats = {
+//     total: CONVOS.length,
+//     active: CONVOS.filter((c) => c.time.includes("m") || c.time.includes("h")).length,
+//     reported: CONVOS.filter((c) => c.reports > 0).length,
+//     flagged: CONVOS.filter((c) => c.flagged).length,
+//   };
+
+//   const moderate = (action: string) => {
+//     if (!selected) return;
+//     toast.success(`${action}: ${selected.customer.name}`);
+//   };
+
+//   return (
+//     <div className="space-y-6">
+//       <PageHeader title="Chat Moderation" subtitle="Monitor conversations & enforce policy" />
+
+//       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+//         <Kpi label="Total Chats" value={stats.total.toLocaleString()} icon={MessageSquare} tone="from-primary/20 to-primary/5" />
+//         <Kpi label="Active Chats" value={String(stats.active)} icon={MessageSquare} tone="from-emerald-500/20 to-emerald-500/5" />
+//         <Kpi label="Reported Chats" value={String(stats.reported)} icon={Flag} tone="from-rose-500/20 to-rose-500/5" />
+//         <Kpi label="Flagged Chats" value={String(stats.flagged)} icon={ShieldAlert} tone="from-amber-500/20 to-amber-500/5" />
+//       </div>
+
+//       {/* Filters */}
+//       <GlassCard>
+//         <div className="flex flex-wrap items-center gap-2">
+//           <div className="relative flex-1 min-w-[220px]">
+//             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+//             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search messages, users…" className="w-full glass rounded-full pl-9 pr-4 py-2 text-sm outline-none" />
+//           </div>
+//           <div className="flex rounded-full glass p-1 text-xs">
+//             {(["all","reported","flagged"] as const).map((k) => (
+//               <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1 rounded-full capitalize ${filter === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{k}</button>
+//             ))}
+//           </div>
+//           <select value={state} onChange={(e) => setState(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none">
+//             <option value="all">All States</option>
+//             {STATES.map((s) => <option key={s}>{s}</option>)}
+//           </select>
+//           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
+//         </div>
+//       </GlassCard>
+
+//       {/* Split panel */}
+//       <div className="grid lg:grid-cols-[360px_1fr] gap-4">
+//         {/* Conversation list */}
+//         <GlassCard className="p-0 overflow-hidden max-h-[70vh] flex flex-col">
+//           <div className="p-3 border-b border-border/40 text-xs text-muted-foreground">{filtered.length} conversations</div>
+//           <div className="overflow-y-auto flex-1 divide-y divide-border/20">
+//             {filtered.map((c) => {
+//               const active = selected?.id === c.id;
+//               return (
+//                 <button key={c.id} onClick={() => setSelected(c)} className={`w-full text-left p-3 transition flex gap-3 ${active ? "bg-primary/15" : "hover:bg-card/40"}`}>
+//                   <div className="relative flex-shrink-0">
+//                     <div className="flex -space-x-3">
+//                       <img src={c.customer.avatar} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
+//                       <img src={c.creator.avatar} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
+//                     </div>
+//                   </div>
+//                   <div className="flex-1 min-w-0">
+//                     <div className="flex items-center justify-between gap-1">
+//                       <p className="text-xs font-semibold truncate">{c.customer.name} → {c.creator.name}</p>
+//                       <span className="text-[10px] text-muted-foreground">{c.time}</span>
+//                     </div>
+//                     <p className="text-xs text-muted-foreground truncate">{c.last}</p>
+//                     <div className="flex items-center gap-1 mt-1">
+//                       {c.reports > 0 && <span className="text-[10px] rounded-full px-1.5 py-0 bg-rose-500/15 text-rose-400 inline-flex items-center gap-0.5"><Flag className="h-2.5 w-2.5" />{c.reports}</span>}
+//                       {c.flagged && <span className="text-[10px] rounded-full px-1.5 py-0 bg-amber-500/15 text-amber-400 inline-flex items-center gap-0.5"><ShieldAlert className="h-2.5 w-2.5" />flagged</span>}
+//                       {c.reason && <span className={`text-[10px] rounded-full px-1.5 py-0 border ${TONE_REASON[c.reason]}`}>{c.reason}</span>}
+//                     </div>
+//                   </div>
+//                 </button>
+//               );
+//             })}
+//             {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No conversations</p>}
+//           </div>
+//         </GlassCard>
+
+//         {/* Chat viewer */}
+//         <GlassCard className="p-0 overflow-hidden flex flex-col max-h-[70vh]">
+//           {selected ? (
+//             <>
+//               <div className="p-3 border-b border-border/40 flex items-center justify-between flex-wrap gap-2">
+//                 <div className="flex items-center gap-3">
+//                   <div className="flex -space-x-3">
+//                     <img src={selected.customer.avatar} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
+//                     <img src={selected.creator.avatar} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
+//                   </div>
+//                   <div>
+//                     <p className="text-sm font-semibold">{selected.customer.name} ↔ {selected.creator.name}</p>
+//                     <p className="text-[10px] text-muted-foreground">{selected.id} · {selected.state} · {selected.date}</p>
+//                   </div>
+//                 </div>
+//                 <div className="flex items-center gap-1">
+//                   <button onClick={() => moderate("Viewed profile")} className="rounded-full glass px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Eye className="h-3 w-3" />View User</button>
+//                   <button onClick={() => moderate("Warned")} className="rounded-full bg-amber-500/15 text-amber-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" />Warn</button>
+//                   <button onClick={() => moderate("Suspended")} className="rounded-full bg-orange-500/15 text-orange-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><UserX className="h-3 w-3" />Suspend</button>
+//                   <button onClick={() => moderate("Banned")} className="rounded-full bg-rose-500/15 text-rose-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Ban className="h-3 w-3" />Ban</button>
+//                   <button onClick={() => setReportModal(true)} className="rounded-full glass px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Flag className="h-3 w-3" />Report</button>
+//                 </div>
+//               </div>
+
+//               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-card/20">
+//                 {selected.messages.map((m) => {
+//                   if (m.from === "system") {
+//                     return (
+//                       <div key={m.id} className="text-center">
+//                         <span className="inline-block text-[10px] text-muted-foreground bg-card/60 rounded-full px-3 py-1">{m.text}</span>
+//                       </div>
+//                     );
+//                   }
+//                   const mine = m.from === "customer";
+//                   return (
+//                     <div key={m.id} className={`flex ${mine ? "justify-start" : "justify-end"} gap-2`}>
+//                       {mine && <img src={selected.customer.avatar} className="h-7 w-7 rounded-full object-cover" alt="" />}
+//                       <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-card" : "bg-primary text-primary-foreground"}`}>
+//                         {m.text && <p>{m.text}</p>}
+//                         {m.image && (
+//                           <div className="mt-1">
+//                             <img src={m.image} className="rounded-lg max-h-40 object-cover" alt="" />
+//                             <p className="text-[10px] opacity-70 mt-1 inline-flex items-center gap-1"><ImageIcon className="h-2.5 w-2.5" /> Image</p>
+//                           </div>
+//                         )}
+//                         {m.gift && (
+//                           <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">
+//                             <Gift className="h-3 w-3" /> {m.gift.name} · {m.gift.coins} coins
+//                           </div>
+//                         )}
+//                         <p className="text-[10px] opacity-60 mt-1 text-right">{m.time}</p>
+//                       </div>
+//                       {!mine && <img src={selected.creator.avatar} className="h-7 w-7 rounded-full object-cover" alt="" />}
+//                     </div>
+//                   );
+//                 })}
+//               </div>
+//             </>
+//           ) : (
+//             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Select a conversation</div>
+//           )}
+//         </GlassCard>
+//       </div>
+
+//       {/* Report modal */}
+//       {reportModal && selected && (
+//         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setReportModal(false)}>
+//           <div onClick={(e) => e.stopPropagation()} className="glass rounded-2xl p-6 w-full max-w-md">
+//             <h3 className="font-semibold mb-1">File a report</h3>
+//             <p className="text-xs text-muted-foreground mb-4">Categorize the issue on chat {selected.id}</p>
+//             <div className="grid grid-cols-2 gap-2">
+//               {(["Harassment","Spam","Abuse","Fraud"] as const).map((r) => (
+//                 <button key={r} onClick={() => { toast.success(`Reported as ${r}`); setReportModal(false); }} className={`rounded-xl border p-3 text-left text-sm ${TONE_REASON[r]}`}>
+//                   <AlertTriangle className="h-4 w-4 mb-1" />
+//                   {r}
+//                 </button>
+//               ))}
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { CREATORS, STATES } from "@/lib/mock-data";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GlassCard, PageHeader } from "@/components/ui-kit";
 import {
-  Search, MessageSquare, Flag, ShieldAlert, AlertTriangle, Eye,
-  Ban, AlertCircle, UserX, Gift, ImageIcon, Filter, Calendar,
+  Search, MessageSquare, Flag, ShieldAlert, AlertCircle, Eye,
+  Ban, UserX, Gift, ImageIcon, RefreshCw, Loader2, ChevronLeft,
+  ChevronRight, Clock, CheckCircle2, FileText, History,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/chats")({ component: ChatsPage });
 
-const CUSTOMERS = [
-  "Rahul Sharma","Vikram Singh","Amit Patel","Rohan Mehta","Karan Joshi",
-  "Arjun Rao","Sahil Kapoor","Dev Iyer","Manish Roy","Yash Bose",
-  "Aman Khan","Nikhil Pillai","Aditya Verma","Sameer Gupta","Tushar Jain",
-];
+const API_BASE = import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000";
 
-type Reason = "Harassment" | "Spam" | "Abuse" | "Fraud" | null;
+// The router has no authentication, so warn/suspend/ban require an admin_id.
+// Hardcoded to the default admin user; replace with real session context once auth lands.
+const DEFAULT_ADMIN_ID = 1;
+const LIST_LIMIT = 20;
+const MESSAGE_LIMIT = 50;
+const REPORTS_LIMIT = 20;
 
-interface Msg {
+// ---------------- API types ----------------
+
+interface UserData { id: number; name: string; email: string | null }
+
+interface ReportItem {
   id: number;
-  from: "customer" | "creator" | "system";
-  text?: string;
-  image?: string;
-  gift?: { name: string; coins: number };
-  time: string;
+  chat_id: number;
+  message_id: number | null;
+  reported_by: number;
+  reason: string | null;
+  description: string | null;
+  status: string | null;
+  is_resolved: boolean;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
-interface Convo {
-  id: string;
-  customer: { name: string; avatar: string };
-  creator: typeof CREATORS[number];
-  last: string;
-  time: string;
-  reports: number;
-  flagged: boolean;
-  reason: Reason;
-  state: string;
-  date: string;
-  unread: number;
-  messages: Msg[];
+interface MessageItem {
+  message_id: number;
+  chat_id: number;
+  sender_id: number;
+  sender: UserData | null;
+  receiver_id: number;
+  receiver: UserData | null;
+  message: string | null;
+  message_type: string;
+  attachment: string | null;
+  is_read: boolean;
+  is_delivered: boolean;
+  is_deleted: boolean;
+  created_at: string | null;
+  report_count: number;
+  reports: ReportItem[];
 }
 
-const buildMessages = (i: number, customer: string, creator: string): Msg[] => {
-  const base: Msg[] = [
-    { id: 1, from: "system", text: "Chat session started", time: "10:00" },
-    { id: 2, from: "customer", text: `Hi ${creator}! How are you?`, time: "10:01" },
-    { id: 3, from: "creator", text: "Hey! I'm great, thanks 😊", time: "10:01" },
-    { id: 4, from: "customer", text: "What are you up to today?", time: "10:02" },
-    { id: 5, from: "creator", text: "Just chilling, watching a movie", time: "10:02" },
-    { id: 6, from: "customer", image: `https://picsum.photos/seed/c${i}/300/200`, time: "10:03" },
-    { id: 7, from: "creator", text: "Wow, nice pic!", time: "10:03" },
-    { id: 8, from: "customer", gift: { name: "Rose", coins: 10 }, time: "10:04" },
-    { id: 9, from: "creator", text: "Thank you so much for the rose! 🌹", time: "10:04" },
-    { id: 10, from: "customer", text: "Can we talk on call later?", time: "10:05" },
-    { id: 11, from: "creator", text: "Sure, around 8pm works for me", time: "10:05" },
-    { id: 12, from: "system", text: "Customer sent a gift worth ₹50", time: "10:06" },
-  ];
-  if (i % 4 === 0) base.push({ id: 13, from: "customer", text: "You are amazing!", time: "10:07" });
-  return base;
-};
+interface ChatItem {
+  chat_id: number;
+  user_one_id: number;
+  user_one: UserData | null;
+  user_two_id: number;
+  user_two: UserData | null;
+  last_message: string | null;
+  last_message_at: string | null;
+  last_message_by: number | null;
+  message_count: number;
+  pending_report_count: number;
+  status: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  last_message_details: MessageItem | null;
+}
 
-const CONVOS: Convo[] = CUSTOMERS.flatMap((cust, i) => {
-  const creator = CREATORS[i % CREATORS.length];
-  const reports = i % 5 === 0 ? (i % 3) + 1 : 0;
-  const flagged = i % 6 === 0;
-  const reason: Reason = reports > 0
-    ? (["Harassment", "Spam", "Abuse", "Fraud"] as Reason[])[i % 4]
-    : null;
-  return [{
-    id: `CH-${1000 + i}`,
-    customer: { name: cust, avatar: `https://i.pravatar.cc/200?u=${encodeURIComponent(cust)}` },
-    creator,
-    last: ["Sure, around 8pm works", "You are amazing!", "Thanks for the gift 🌹", "Can we voice call?", "Goodnight ✨"][i % 5],
-    time: ["2m", "10m", "1h", "3h", "yesterday"][i % 5],
-    reports,
-    flagged,
-    reason,
-    state: STATES[i % STATES.length],
-    date: `2026-05-${String(28 - (i % 26)).padStart(2, "0")}`,
-    unread: i % 3,
-    messages: buildMessages(i, cust, creator.name),
-  }];
-});
+interface Overview {
+  total_conversations: number;
+  active_conversations: number;
+  total_reports: number;
+  pending_reports: number;
+  flagged_messages: number;
+}
 
-const TONE_REASON: Record<string, string> = {
-  Harassment: "bg-rose-500/15 text-rose-400 border-rose-500/30",
-  Spam: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  Abuse: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  Fraud: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-};
+interface ModerationAction {
+  id: number;
+  chat_id: number;
+  user_id: number;
+  admin_id: number;
+  action: string;
+  reason: string | null;
+  duration: number | null;
+  created_at: string | null;
+}
+
+interface Pagination { page: number; limit: number; total: number; total_pages: number }
+
+// ---------------- helpers ----------------
+
+const inr = (n: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
+
+function avatarUrl(seed: string | number | null | undefined): string {
+  return `https://i.pravatar.cc/200?u=${encodeURIComponent(String(seed ?? "x"))}`;
+}
+
+function fmtTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
+
+function relative(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+function actionTone(a: string): string {
+  const v = (a || "").toLowerCase();
+  if (v === "warn") return "bg-amber-500/15 text-amber-400";
+  if (v === "suspend") return "bg-orange-500/15 text-orange-400";
+  if (v === "ban") return "bg-rose-500/15 text-rose-400";
+  return "bg-muted/30 text-muted-foreground";
+}
+
+function reasonTone(r: string | null | undefined): string {
+  const v = (r || "").toLowerCase();
+  if (v.includes("harass")) return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+  if (v.includes("spam")) return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  if (v.includes("abuse")) return "bg-orange-500/15 text-orange-400 border-orange-500/30";
+  if (v.includes("fraud")) return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+  return "bg-muted/30 text-muted-foreground border-border";
+}
+
+async function getJson(url: string) {
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  let body: any = null;
+  try { body = await res.json(); } catch { /* ignore */ }
+  if (!res.ok) {
+    const msg = body?.detail || body?.message || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return body;
+}
+
+async function postJson(url: string) {
+  const res = await fetch(url, { method: "POST", headers: { accept: "application/json" } });
+  let body: any = null;
+  try { body = await res.json(); } catch { /* ignore */ }
+  if (!res.ok) {
+    const msg = body?.detail || body?.message || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return body;
+}
+
+// ---------------- moderation modal ----------------
+
+type ModerationActionType = "warn" | "suspend" | "ban";
+
+interface ModerationModalProps {
+  action: ModerationActionType;
+  chatId: number;
+  userOptions: { id: number; name: string }[];
+  onClose: () => void;
+  onDone: () => void;
+}
+
+function ModerationModal({ action, chatId, userOptions, onClose, onDone }: ModerationModalProps) {
+  const [userId, setUserId] = useState<number>(userOptions[0]?.id ?? 0);
+  const [reason, setReason] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [busy, setBusy] = useState(false);
+
+  const title =
+    action === "warn" ? "Warn User" :
+    action === "suspend" ? "Suspend User" : "Ban User";
+  const tone =
+    action === "warn" ? "text-amber-400" :
+    action === "suspend" ? "text-orange-400" : "text-rose-400";
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const sp = new URLSearchParams();
+      sp.set("user_id", String(userId));
+      sp.set("admin_id", String(DEFAULT_ADMIN_ID));
+      if (reason.trim()) sp.set("reason", reason.trim());
+      if (action === "suspend") sp.set("duration", String(duration));
+      await postJson(`${API_BASE}/admin/chat-moderation/${chatId}/${action}?${sp.toString()}`);
+      toast.success(`${title} recorded`);
+      onDone();
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message || "Action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="glass rounded-2xl p-6 w-full max-w-md">
+        <h3 className={`font-semibold mb-1 ${tone}`}>{title}</h3>
+        <p className="text-xs text-muted-foreground mb-4">Chat #{chatId} · recorded by admin #{DEFAULT_ADMIN_ID}</p>
+
+        <label className="text-[10px] text-muted-foreground uppercase">Target user</label>
+        <select value={userId} onChange={(e) => setUserId(+e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none">
+          {userOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+
+        <label className="text-[10px] text-muted-foreground uppercase">Reason</label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. harassment, spam…"
+          className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none"
+        />
+
+        {action === "suspend" && (
+          <>
+            <label className="text-[10px] text-muted-foreground uppercase">Duration (minutes)</label>
+            <input
+              type="number"
+              min={1}
+              value={duration}
+              onChange={(e) => setDuration(Math.max(1, +e.target.value))}
+              className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none"
+            />
+          </>
+        )}
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="rounded-full glass px-4 py-2 text-sm">Cancel</button>
+          <button onClick={submit} disabled={busy} className="rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-60">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- KPI ----------------
 
 function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: string }) {
   return (
@@ -106,48 +560,250 @@ function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string;
   );
 }
 
+// ---------------- page ----------------
+
 function ChatsPage() {
-  const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "reported" | "flagged">("all");
-  const [state, setState] = useState("all");
-  const [date, setDate] = useState("");
-  const [selected, setSelected] = useState<Convo | null>(CONVOS[0]);
-  const [reportModal, setReportModal] = useState(false);
+  // Dashboard
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => CONVOS.filter((c) => {
-    if (filter === "reported" && c.reports === 0) return false;
-    if (filter === "flagged" && !c.flagged) return false;
-    if (state !== "all" && c.state !== state) return false;
-    if (date && c.date !== date) return false;
-    if (q) {
-      const s = q.toLowerCase();
-      const inMsg = c.messages.some((m) => m.text?.toLowerCase().includes(s));
-      if (!c.customer.name.toLowerCase().includes(s) && !c.creator.name.toLowerCase().includes(s) && !inMsg) return false;
+  // Conversation list
+  const [convos, setConvos] = useState<ChatItem[]>([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [listPage, setListPage] = useState(1);
+  const [listTotalPages, setListTotalPages] = useState(1);
+  const [loadingList, setLoadingList] = useState(true);
+
+  // Filters
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "reported" | "flagged">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Selected conversation + messages
+  const [selected, setSelected] = useState<ChatItem | null>(null);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [msgPage, setMsgPage] = useState(1);
+  const [msgTotalPages, setMsgTotalPages] = useState(1);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [msgSearch, setMsgSearch] = useState("");
+
+  // Tabs in the right pane
+  const [tab, setTab] = useState<"messages" | "reports" | "history">("messages");
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [actions, setActions] = useState<ModerationAction[]>([]);
+  const [loadingActions, setLoadingActions] = useState(false);
+
+  // Moderation modal
+  const [modModal, setModModal] = useState<ModerationActionType | null>(null);
+
+  // ---- fetchers ----
+
+  const loadOverview = useCallback(async () => {
+    setLoadingOverview(true);
+    setOverviewError(null);
+    try {
+      const j = await getJson(`${API_BASE}/admin/chat-moderation/dashboard`);
+      setOverview(j.data);
+    } catch (e: any) {
+      setOverviewError(e?.message || "Failed to load dashboard");
+    } finally {
+      setLoadingOverview(false);
     }
-    return true;
-  }), [q, filter, state, date]);
+  }, []);
 
-  const stats = {
-    total: CONVOS.length,
-    active: CONVOS.filter((c) => c.time.includes("m") || c.time.includes("h")).length,
-    reported: CONVOS.filter((c) => c.reports > 0).length,
-    flagged: CONVOS.filter((c) => c.flagged).length,
+  useEffect(() => { loadOverview(); }, [loadOverview]);
+
+  // debounce search
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setListPage(1); }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const onFilterType = (v: "all" | "reported" | "flagged") => { setFilterType(v); setListPage(1); };
+  const onStatus = (v: "all" | "active" | "inactive") => { setStatusFilter(v); setListPage(1); };
+  const onStartDate = (v: string) => { setStartDate(v); setListPage(1); };
+  const onEndDate = (v: string) => { setEndDate(v); setListPage(1); };
+
+  const loadList = useCallback(async () => {
+    setLoadingList(true);
+    try {
+      const sp = new URLSearchParams();
+      if (search.trim()) sp.set("search", search.trim());
+      if (filterType !== "all") sp.set("filter_type", filterType);
+      if (statusFilter !== "all") sp.set("status", statusFilter);
+      if (startDate) sp.set("start_date", `${startDate}T00:00:00`);
+      if (endDate) sp.set("end_date", `${endDate}T23:59:59`);
+      sp.set("page", String(listPage));
+      sp.set("limit", String(LIST_LIMIT));
+      const j = await getJson(`${API_BASE}/admin/chat-moderation?${sp.toString()}`);
+      setConvos(j.data || []);
+      const p: Pagination = j.pagination;
+      setListTotal(p?.total ?? 0);
+      setListTotalPages(p?.total_pages ?? 1);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load conversations");
+      setConvos([]);
+    } finally {
+      setLoadingList(false);
+    }
+  }, [search, filterType, statusFilter, startDate, endDate, listPage]);
+
+  useEffect(() => { loadList(); }, [loadList]);
+
+  const loadMessages = useCallback(async (chatId: number, page: number) => {
+    setLoadingMessages(true);
+    try {
+      const sp = new URLSearchParams();
+      if (msgSearch.trim()) sp.set("search", msgSearch.trim());
+      sp.set("page", String(page));
+      sp.set("limit", String(MESSAGE_LIMIT));
+      const j = await getJson(`${API_BASE}/admin/chat-moderation/${chatId}/messages?${sp.toString()}`);
+      setMessages(j.data || []);
+      setMsgTotalPages(j.pagination?.total_pages ?? 1);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load messages");
+      setMessages([]);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [msgSearch]);
+
+  const loadReports = useCallback(async (chatId: number) => {
+    setLoadingReports(true);
+    try {
+      const sp = new URLSearchParams();
+      sp.set("chat_id", String(chatId));
+      sp.set("page", "1");
+      sp.set("limit", String(REPORTS_LIMIT));
+      const j = await getJson(`${API_BASE}/admin/chat-moderation/reports/list?${sp.toString()}`);
+      setReports(j.data || []);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load reports");
+      setReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  }, []);
+
+  const loadActions = useCallback(async (chatId: number) => {
+    setLoadingActions(true);
+    try {
+      const j = await getJson(`${API_BASE}/admin/chat-moderation/${chatId}/actions`);
+      setActions(j.data || []);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load history");
+      setActions([]);
+    } finally {
+      setLoadingActions(false);
+    }
+  }, []);
+
+  // When a conversation is selected, reset pagination and load messages + (if on those tabs) reports/history
+  const selectConvo = (c: ChatItem) => {
+    setSelected(c);
+    setMsgPage(1);
+    setMsgSearch("");
+    setMessages([]);
+    setReports([]);
+    setActions([]);
+    loadMessages(c.chat_id, 1);
+    if (tab === "reports") loadReports(c.chat_id);
+    if (tab === "history") loadActions(c.chat_id);
   };
 
-  const moderate = (action: string) => {
+  // Reload per-tab data when tab changes (and a conversation is selected)
+  useEffect(() => {
     if (!selected) return;
-    toast.success(`${action}: ${selected.customer.name}`);
+    if (tab === "reports") loadReports(selected.chat_id);
+    if (tab === "history") loadActions(selected.chat_id);
+  }, [tab, selected, loadReports, loadActions]);
+
+  const resolveReport = async (reportId: number) => {
+    try {
+      await postJson(`${API_BASE}/admin/chat-moderation/reports/${reportId}/resolve`);
+      toast.success("Report resolved");
+      if (selected) loadReports(selected.chat_id);
+      loadOverview(); // refresh pending count
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to resolve report");
+    }
   };
+
+  const userOptions = useMemo(() => {
+    if (!selected) return [];
+    const opts: { id: number; name: string }[] = [];
+    if (selected.user_one) opts.push({ id: selected.user_one.id, name: selected.user_one.name });
+    if (selected.user_two) opts.push({ id: selected.user_two.id, name: selected.user_two.name });
+    return opts;
+  }, [selected]);
+
+  const refreshAll = () => {
+    loadOverview();
+    loadList();
+    if (selected) {
+      loadMessages(selected.chat_id, msgPage);
+      if (tab === "reports") loadReports(selected.chat_id);
+      if (tab === "history") loadActions(selected.chat_id);
+    }
+  };
+
+  const hasFilters = search || filterType !== "all" || statusFilter !== "all" || startDate || endDate;
+  const clearFilters = () => {
+    setSearchInput(""); setSearch(""); setFilterType("all");
+    setStatusFilter("all"); setStartDate(""); setEndDate(""); setListPage(1);
+  };
+
+  // ---- render ----
+
+  if (loadingOverview && !overview) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (overviewError && !overview) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Chat Moderation" subtitle="Monitor conversations & enforce policy" />
+        <GlassCard className="text-center py-20 flex flex-col items-center gap-4">
+          <AlertCircle className="h-12 w-12 text-destructive" />
+          <div>
+            <h3 className="font-bold text-lg">Failed to Load Dashboard</h3>
+            <p className="text-sm text-muted-foreground mt-1">{overviewError}</p>
+          </div>
+          <button onClick={loadOverview} className="rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" /> Retry
+          </button>
+        </GlassCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Chat Moderation" subtitle="Monitor conversations & enforce policy" />
+      <PageHeader
+        title="Chat Moderation"
+        subtitle="Monitor conversations & enforce policy"
+        action={
+          <button onClick={refreshAll} disabled={loadingOverview || loadingList} className="glass rounded-full px-3 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${loadingOverview || loadingList ? "animate-spin" : ""}`} /> Refresh
+          </button>
+        }
+      />
 
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Total Chats" value={stats.total.toLocaleString()} icon={MessageSquare} tone="from-primary/20 to-primary/5" />
-        <Kpi label="Active Chats" value={String(stats.active)} icon={MessageSquare} tone="from-emerald-500/20 to-emerald-500/5" />
-        <Kpi label="Reported Chats" value={String(stats.reported)} icon={Flag} tone="from-rose-500/20 to-rose-500/5" />
-        <Kpi label="Flagged Chats" value={String(stats.flagged)} icon={ShieldAlert} tone="from-amber-500/20 to-amber-500/5" />
+        <Kpi label="Total Chats" value={(overview?.total_conversations ?? 0).toLocaleString()} icon={MessageSquare} tone="from-primary/20 to-primary/5" />
+        <Kpi label="Active Chats" value={(overview?.active_conversations ?? 0).toLocaleString()} icon={MessageSquare} tone="from-emerald-500/20 to-emerald-500/5" />
+        <Kpi label="Pending Reports" value={(overview?.pending_reports ?? 0).toLocaleString()} icon={Flag} tone="from-rose-500/20 to-rose-500/5" />
+        <Kpi label="Flagged Messages" value={(overview?.flagged_messages ?? 0).toLocaleString()} icon={ShieldAlert} tone="from-amber-500/20 to-amber-500/5" />
       </div>
 
       {/* Filters */}
@@ -155,18 +811,29 @@ function ChatsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search messages, users…" className="w-full glass rounded-full pl-9 pr-4 py-2 text-sm outline-none" />
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search users, messages, chat ID…"
+              className="w-full glass rounded-full pl-9 pr-4 py-2 text-sm outline-none"
+            />
           </div>
           <div className="flex rounded-full glass p-1 text-xs">
-            {(["all","reported","flagged"] as const).map((k) => (
-              <button key={k} onClick={() => setFilter(k)} className={`px-3 py-1 rounded-full capitalize ${filter === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{k}</button>
+            {(["all", "reported", "flagged"] as const).map((k) => (
+              <button key={k} onClick={() => onFilterType(k)} className={`px-3 py-1 rounded-full capitalize ${filterType === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{k}</button>
             ))}
           </div>
-          <select value={state} onChange={(e) => setState(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none">
-            <option value="all">All States</option>
-            {STATES.map((s) => <option key={s}>{s}</option>)}
+          <select value={statusFilter} onChange={(e) => onStatus(e.target.value as any)} className="glass rounded-full px-3 py-2 text-xs outline-none">
+            <option value="all">All status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
+          <input type="date" value={startDate} onChange={(e) => onStartDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input type="date" value={endDate} onChange={(e) => onEndDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
+          {hasFilters && (
+            <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+          )}
         </div>
       </GlassCard>
 
@@ -174,34 +841,61 @@ function ChatsPage() {
       <div className="grid lg:grid-cols-[360px_1fr] gap-4">
         {/* Conversation list */}
         <GlassCard className="p-0 overflow-hidden max-h-[70vh] flex flex-col">
-          <div className="p-3 border-b border-border/40 text-xs text-muted-foreground">{filtered.length} conversations</div>
+          <div className="p-3 border-b border-border/40 text-xs text-muted-foreground flex items-center justify-between">
+            <span>{loadingList ? "Loading…" : `${listTotal} conversations`}</span>
+            <span className="text-[10px]">page {listPage}/{listTotalPages}</span>
+          </div>
           <div className="overflow-y-auto flex-1 divide-y divide-border/20">
-            {filtered.map((c) => {
-              const active = selected?.id === c.id;
+            {loadingList ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin inline-block mb-2" /> Loading…
+              </div>
+            ) : convos.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-8">No conversations</p>
+            ) : convos.map((c) => {
+              const active = selected?.chat_id === c.chat_id;
+              const u1 = c.user_one, u2 = c.user_two;
               return (
-                <button key={c.id} onClick={() => setSelected(c)} className={`w-full text-left p-3 transition flex gap-3 ${active ? "bg-primary/15" : "hover:bg-card/40"}`}>
-                  <div className="relative flex-shrink-0">
-                    <div className="flex -space-x-3">
-                      <img src={c.customer.avatar} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
-                      <img src={c.creator.avatar} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
-                    </div>
+                <button key={c.chat_id} onClick={() => selectConvo(c)} className={`w-full text-left p-3 transition flex gap-3 ${active ? "bg-primary/15" : "hover:bg-card/40"}`}>
+                  <div className="flex -space-x-3 flex-shrink-0">
+                    <img src={avatarUrl(u1?.id ?? u1?.name)} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
+                    <img src={avatarUrl(u2?.id ?? u2?.name)} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <p className="text-xs font-semibold truncate">{c.customer.name} → {c.creator.name}</p>
-                      <span className="text-[10px] text-muted-foreground">{c.time}</span>
+                      <p className="text-xs font-semibold truncate">{u1?.name ?? "—"} → {u2?.name ?? "—"}</p>
+                      <span className="text-[10px] text-muted-foreground">{relative(c.last_message_at || c.updated_at)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{c.last}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {c.reports > 0 && <span className="text-[10px] rounded-full px-1.5 py-0 bg-rose-500/15 text-rose-400 inline-flex items-center gap-0.5"><Flag className="h-2.5 w-2.5" />{c.reports}</span>}
-                      {c.flagged && <span className="text-[10px] rounded-full px-1.5 py-0 bg-amber-500/15 text-amber-400 inline-flex items-center gap-0.5"><ShieldAlert className="h-2.5 w-2.5" />flagged</span>}
-                      {c.reason && <span className={`text-[10px] rounded-full px-1.5 py-0 border ${TONE_REASON[c.reason]}`}>{c.reason}</span>}
+                    <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {c.pending_report_count > 0 && (
+                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-rose-500/15 text-rose-400 inline-flex items-center gap-0.5">
+                          <Flag className="h-2.5 w-2.5" />{c.pending_report_count}
+                        </span>
+                      )}
+                      <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground inline-flex items-center gap-0.5">
+                        <MessageSquare className="h-2.5 w-2.5" />{c.message_count}
+                      </span>
+                      {c.status ? (
+                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-emerald-500/15 text-emerald-400">active</span>
+                      ) : (
+                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground">inactive</span>
+                      )}
                     </div>
                   </div>
                 </button>
               );
             })}
-            {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No conversations</p>}
+          </div>
+          {/* list pagination */}
+          <div className="p-2 border-t border-border/40 flex items-center justify-between text-[10px]">
+            <button disabled={listPage <= 1} onClick={() => setListPage((p) => Math.max(1, p - 1))} className="glass rounded-full p-1.5 disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="text-muted-foreground">{listPage} / {listTotalPages}</span>
+            <button disabled={listPage >= listTotalPages} onClick={() => setListPage((p) => Math.min(listTotalPages, p + 1))} className="glass rounded-full p-1.5 disabled:opacity-40">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </GlassCard>
 
@@ -212,56 +906,168 @@ function ChatsPage() {
               <div className="p-3 border-b border-border/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-3">
-                    <img src={selected.customer.avatar} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
-                    <img src={selected.creator.avatar} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
+                    <img src={avatarUrl(selected.user_one?.id ?? selected.user_one?.name)} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
+                    <img src={avatarUrl(selected.user_two?.id ?? selected.user_two?.name)} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{selected.customer.name} ↔ {selected.creator.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{selected.id} · {selected.state} · {selected.date}</p>
+                    <p className="text-sm font-semibold">{selected.user_one?.name ?? "—"} ↔ {selected.user_two?.name ?? "—"}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      #{selected.chat_id} · {selected.message_count} messages · {selected.pending_report_count} pending report{selected.pending_report_count === 1 ? "" : "s"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => moderate("Viewed profile")} className="rounded-full glass px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Eye className="h-3 w-3" />View User</button>
-                  <button onClick={() => moderate("Warned")} className="rounded-full bg-amber-500/15 text-amber-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" />Warn</button>
-                  <button onClick={() => moderate("Suspended")} className="rounded-full bg-orange-500/15 text-orange-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><UserX className="h-3 w-3" />Suspend</button>
-                  <button onClick={() => moderate("Banned")} className="rounded-full bg-rose-500/15 text-rose-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Ban className="h-3 w-3" />Ban</button>
-                  <button onClick={() => setReportModal(true)} className="rounded-full glass px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Flag className="h-3 w-3" />Report</button>
+                  <button onClick={() => setModModal("warn")} className="rounded-full bg-amber-500/15 text-amber-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" />Warn</button>
+                  <button onClick={() => setModModal("suspend")} className="rounded-full bg-orange-500/15 text-orange-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><UserX className="h-3 w-3" />Suspend</button>
+                  <button onClick={() => setModModal("ban")} className="rounded-full bg-rose-500/15 text-rose-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Ban className="h-3 w-3" />Ban</button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-card/20">
-                {selected.messages.map((m) => {
-                  if (m.from === "system") {
-                    return (
-                      <div key={m.id} className="text-center">
-                        <span className="inline-block text-[10px] text-muted-foreground bg-card/60 rounded-full px-3 py-1">{m.text}</span>
-                      </div>
-                    );
-                  }
-                  const mine = m.from === "customer";
-                  return (
-                    <div key={m.id} className={`flex ${mine ? "justify-start" : "justify-end"} gap-2`}>
-                      {mine && <img src={selected.customer.avatar} className="h-7 w-7 rounded-full object-cover" alt="" />}
-                      <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-card" : "bg-primary text-primary-foreground"}`}>
-                        {m.text && <p>{m.text}</p>}
-                        {m.image && (
-                          <div className="mt-1">
-                            <img src={m.image} className="rounded-lg max-h-40 object-cover" alt="" />
-                            <p className="text-[10px] opacity-70 mt-1 inline-flex items-center gap-1"><ImageIcon className="h-2.5 w-2.5" /> Image</p>
-                          </div>
-                        )}
-                        {m.gift && (
-                          <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">
-                            <Gift className="h-3 w-3" /> {m.gift.name} · {m.gift.coins} coins
-                          </div>
-                        )}
-                        <p className="text-[10px] opacity-60 mt-1 text-right">{m.time}</p>
-                      </div>
-                      {!mine && <img src={selected.creator.avatar} className="h-7 w-7 rounded-full object-cover" alt="" />}
-                    </div>
-                  );
-                })}
+              {/* tabs */}
+              <div className="px-3 pt-2 flex items-center gap-1 text-xs border-b border-border/40">
+                {([
+                  { k: "messages", label: "Messages", icon: MessageSquare },
+                  { k: "reports", label: `Reports${reports.length ? ` (${reports.filter(r => !r.is_resolved).length})` : ""}`, icon: Flag },
+                  { k: "history", label: "History", icon: History },
+                ] as const).map((t) => (
+                  <button
+                    key={t.k}
+                    onClick={() => setTab(t.k)}
+                    className={`px-3 py-1.5 rounded-t-lg inline-flex items-center gap-1.5 ${tab === t.k ? "bg-card/40 text-foreground font-semibold" : "text-muted-foreground"}`}
+                  >
+                    <t.icon className="h-3 w-3" />{t.label}
+                  </button>
+                ))}
               </div>
+
+              {/* tab content */}
+              <div className="flex-1 overflow-y-auto">
+                {tab === "messages" && (
+                  <div className="p-4 space-y-3 bg-card/20">
+                    {/* message search */}
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        value={msgSearch}
+                        onChange={(e) => { setMsgSearch(e.target.value); setMsgPage(1); }}
+                        placeholder="Search messages…"
+                        className="w-full glass rounded-full pl-8 pr-3 py-1.5 text-xs outline-none"
+                      />
+                    </div>
+
+                    {loadingMessages ? (
+                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading messages…</div>
+                    ) : messages.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">No messages</p>
+                    ) : messages.map((m) => {
+                      const mine = selected.user_one_id === m.sender_id;
+                      const isGift = (m.message_type || "").toLowerCase().includes("gift");
+                      const isImage = (m.message_type || "").toLowerCase().includes("image") || /\.(png|jpe?g|gif|webp)$/i.test(m.attachment || "");
+
+                      return (
+                        <div key={m.message_id} className={`flex ${mine ? "justify-start" : "justify-end"} gap-2`}>
+                          {mine && <img src={avatarUrl(m.sender?.id ?? m.sender?.name)} className="h-7 w-7 rounded-full object-cover" alt="" />}
+                          <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-card" : "bg-primary text-primary-foreground"}`}>
+                            <p className="text-[10px] opacity-60 mb-0.5">{m.sender?.name ?? "Unknown"}</p>
+                            {m.message && <p>{m.message}</p>}
+                            {isImage && m.attachment && (
+                              <div className="mt-1">
+                                <a href={m.attachment} target="_blank" rel="noreferrer">
+                                  <img src={m.attachment} className="rounded-lg max-h-40 object-cover" alt="" />
+                                </a>
+                                <p className="text-[10px] opacity-70 mt-1 inline-flex items-center gap-1"><ImageIcon className="h-2.5 w-2.5" /> Image</p>
+                              </div>
+                            )}
+                            {isGift && (
+                              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">
+                                <Gift className="h-3 w-3" /> Gift
+                              </div>
+                            )}
+                            {m.report_count > 0 && (
+                              <p className="text-[10px] mt-1 inline-flex items-center gap-1 text-rose-400">
+                                <Flag className="h-2.5 w-2.5" /> {m.report_count} report{m.report_count === 1 ? "" : "s"}
+                              </p>
+                            )}
+                            <p className="text-[10px] opacity-60 mt-1 text-right">{fmtTime(m.created_at)}</p>
+                          </div>
+                          {!mine && <img src={avatarUrl(m.sender?.id ?? m.sender?.name)} className="h-7 w-7 rounded-full object-cover" alt="" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {tab === "reports" && (
+                  <div className="p-4 space-y-2">
+                    {loadingReports ? (
+                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading reports…</div>
+                    ) : reports.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">No reports filed for this conversation</p>
+                    ) : reports.map((r) => (
+                      <div key={r.id} className="glass-strong rounded-xl p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Flag className="h-3.5 w-3.5 text-rose-400" />
+                            <span className="text-sm font-semibold">Report #{r.id}</span>
+                            {r.reason && <span className={`text-[10px] rounded-full px-2 py-0.5 border ${reasonTone(r.reason)}`}>{r.reason}</span>}
+                          </div>
+                          <span className={`text-[10px] rounded-full px-2 py-0.5 ${r.is_resolved ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
+                            {r.is_resolved ? "resolved" : "pending"}
+                          </span>
+                        </div>
+                        {r.description && <p className="text-xs text-muted-foreground mt-2">{r.description}</p>}
+                        <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3" /> msg #{r.message_id ?? "—"} · by user #{r.reported_by}</span>
+                          <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDateTime(r.created_at)}</span>
+                        </div>
+                        {!r.is_resolved && (
+                          <button
+                            onClick={() => resolveReport(r.id)}
+                            className="mt-2 rounded-full bg-emerald-500/15 text-emerald-400 px-3 py-1 text-[10px] inline-flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="h-3 w-3" /> Resolve
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {tab === "history" && (
+                  <div className="p-4 space-y-2">
+                    {loadingActions ? (
+                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading history…</div>
+                    ) : actions.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">No moderation actions recorded</p>
+                    ) : actions.map((a) => (
+                      <div key={a.id} className="glass-strong rounded-xl p-3 flex items-start gap-3">
+                        <div className={`text-[10px] rounded-full px-2 py-1 font-semibold uppercase ${actionTone(a.action)}`}>{a.action}</div>
+                        <div className="flex-1">
+                          <p className="text-xs">
+                            User #{a.user_id} · by admin #{a.admin_id}
+                            {a.duration ? ` · ${a.duration} min` : ""}
+                          </p>
+                          {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
+                          <p className="text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDateTime(a.created_at)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* message pagination (only on messages tab) */}
+              {tab === "messages" && (
+                <div className="p-2 border-t border-border/40 flex items-center justify-between text-[10px]">
+                  <button disabled={msgPage <= 1} onClick={() => { const p = Math.max(1, msgPage - 1); setMsgPage(p); if (selected) loadMessages(selected.chat_id, p); }} className="glass rounded-full p-1.5 disabled:opacity-40">
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-muted-foreground">{msgPage} / {msgTotalPages}</span>
+                  <button disabled={msgPage >= msgTotalPages} onClick={() => { const p = Math.min(msgTotalPages, msgPage + 1); setMsgPage(p); if (selected) loadMessages(selected.chat_id, p); }} className="glass rounded-full p-1.5 disabled:opacity-40">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Select a conversation</div>
@@ -269,22 +1075,20 @@ function ChatsPage() {
         </GlassCard>
       </div>
 
-      {/* Report modal */}
-      {reportModal && selected && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setReportModal(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="glass rounded-2xl p-6 w-full max-w-md">
-            <h3 className="font-semibold mb-1">File a report</h3>
-            <p className="text-xs text-muted-foreground mb-4">Categorize the issue on chat {selected.id}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(["Harassment","Spam","Abuse","Fraud"] as const).map((r) => (
-                <button key={r} onClick={() => { toast.success(`Reported as ${r}`); setReportModal(false); }} className={`rounded-xl border p-3 text-left text-sm ${TONE_REASON[r]}`}>
-                  <AlertTriangle className="h-4 w-4 mb-1" />
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* Moderation modal */}
+      {modModal && selected && (
+        <ModerationModal
+          action={modModal}
+          chatId={selected.chat_id}
+          userOptions={userOptions}
+          onClose={() => setModModal(null)}
+          onDone={() => {
+            // Refresh history + overview after a moderation action
+            if (tab === "history") loadActions(selected.chat_id);
+            else loadActions(selected.chat_id);
+            loadOverview();
+          }}
+        />
       )}
     </div>
   );
