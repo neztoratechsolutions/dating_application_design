@@ -293,26 +293,55 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GlassCard, PageHeader } from "@/components/ui-kit";
 import {
-  Search, MessageSquare, Flag, ShieldAlert, AlertCircle, Eye,
-  Ban, UserX, Gift, ImageIcon, RefreshCw, Loader2, ChevronLeft,
-  ChevronRight, Clock, CheckCircle2, FileText, History,
+  Search,
+  MessageSquare,
+  Flag,
+  ShieldAlert,
+  AlertCircle,
+  Ban,
+  UserX,
+  Gift,
+  ImageIcon,
+  RefreshCw,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  FileText,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/admin/chats")({ component: ChatsPage });
+export const Route = createFileRoute("/admin/chats")({
+  component: ChatsPage,
+});
 
-const API_BASE = import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000";
+// =========================================================
+// CONFIGURATION
+// =========================================================
 
-// The router has no authentication, so warn/suspend/ban require an admin_id.
-// Hardcoded to the default admin user; replace with real session context once auth lands.
+const API_BASE = (
+  import.meta.env.VITE_BASE_URL || "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
+
+const ADMIN_CHAT_API = `${API_BASE}/admin/chat-moderation`;
+
 const DEFAULT_ADMIN_ID = 1;
+
 const LIST_LIMIT = 20;
 const MESSAGE_LIMIT = 50;
 const REPORTS_LIMIT = 20;
 
-// ---------------- API types ----------------
+// =========================================================
+// API TYPES
+// =========================================================
 
-interface UserData { id: number; name: string; email: string | null }
+interface UserData {
+  id: number;
+  name: string;
+  email: string | null;
+}
 
 interface ReportItem {
   id: number;
@@ -381,160 +410,390 @@ interface ModerationAction {
   created_at: string | null;
 }
 
-interface Pagination { page: number; limit: number; total: number; total_pages: number }
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+}
 
-// ---------------- helpers ----------------
+interface ApiResponse<T> {
+  status_code?: number;
+  message?: string;
+  data: T;
+  pagination?: Pagination;
+}
 
-const inr = (n: number) => `₹${(n || 0).toLocaleString("en-IN")}`;
+// =========================================================
+// HELPERS
+// =========================================================
 
-function avatarUrl(seed: string | number | null | undefined): string {
-  return `https://i.pravatar.cc/200?u=${encodeURIComponent(String(seed ?? "x"))}`;
+function avatarUrl(
+  seed: string | number | null | undefined
+): string {
+  return `https://i.pravatar.cc/200?u=${encodeURIComponent(
+    String(seed ?? "x")
+  )}`;
 }
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "";
+
   const d = new Date(iso);
+
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "—";
+
   const d = new Date(iso);
+
   if (isNaN(d.getTime())) return "—";
+
   return d.toLocaleString();
 }
 
 function relative(iso: string | null): string {
   if (!iso) return "";
+
   const d = new Date(iso);
+
   if (isNaN(d.getTime())) return "";
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  return `${Math.floor(s / 86400)}d`;
+
+  const seconds = Math.floor(
+    (Date.now() - d.getTime()) / 1000
+  );
+
+  if (seconds < 60) return "just now";
+
+  if (seconds < 3600) {
+    return `${Math.floor(seconds / 60)}m`;
+  }
+
+  if (seconds < 86400) {
+    return `${Math.floor(seconds / 3600)}h`;
+  }
+
+  return `${Math.floor(seconds / 86400)}d`;
 }
 
-function actionTone(a: string): string {
-  const v = (a || "").toLowerCase();
-  if (v === "warn") return "bg-amber-500/15 text-amber-400";
-  if (v === "suspend") return "bg-orange-500/15 text-orange-400";
-  if (v === "ban") return "bg-rose-500/15 text-rose-400";
+function actionTone(action: string): string {
+  const value = (action || "").toLowerCase();
+
+  if (value === "warn") {
+    return "bg-amber-500/15 text-amber-400";
+  }
+
+  if (value === "suspend") {
+    return "bg-orange-500/15 text-orange-400";
+  }
+
+  if (value === "ban") {
+    return "bg-rose-500/15 text-rose-400";
+  }
+
   return "bg-muted/30 text-muted-foreground";
 }
 
-function reasonTone(r: string | null | undefined): string {
-  const v = (r || "").toLowerCase();
-  if (v.includes("harass")) return "bg-rose-500/15 text-rose-400 border-rose-500/30";
-  if (v.includes("spam")) return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-  if (v.includes("abuse")) return "bg-orange-500/15 text-orange-400 border-orange-500/30";
-  if (v.includes("fraud")) return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+function reasonTone(
+  reason: string | null | undefined
+): string {
+  const value = (reason || "").toLowerCase();
+
+  if (value.includes("harass")) {
+    return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+  }
+
+  if (value.includes("spam")) {
+    return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  }
+
+  if (value.includes("abuse")) {
+    return "bg-orange-500/15 text-orange-400 border-orange-500/30";
+  }
+
+  if (value.includes("fraud")) {
+    return "bg-purple-500/15 text-purple-400 border-purple-500/30";
+  }
+
   return "bg-muted/30 text-muted-foreground border-border";
 }
 
-async function getJson(url: string) {
-  const res = await fetch(url, { headers: { accept: "application/json" } });
+// =========================================================
+// API HELPERS
+// =========================================================
+
+async function getJson<T = any>(
+  url: string,
+  signal?: AbortSignal
+): Promise<T> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    signal,
+  });
+
   let body: any = null;
-  try { body = await res.json(); } catch { /* ignore */ }
-  if (!res.ok) {
-    const msg = body?.detail || body?.message || `Request failed (${res.status})`;
-    throw new Error(msg);
+
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
   }
+
+  if (!response.ok) {
+    const message =
+      body?.detail ||
+      body?.message ||
+      `Request failed (${response.status})`;
+
+    throw new Error(message);
+  }
+
   return body;
 }
 
-async function postJson(url: string) {
-  const res = await fetch(url, { method: "POST", headers: { accept: "application/json" } });
+async function postJson<T = any>(
+  url: string
+): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
   let body: any = null;
-  try { body = await res.json(); } catch { /* ignore */ }
-  if (!res.ok) {
-    const msg = body?.detail || body?.message || `Request failed (${res.status})`;
-    throw new Error(msg);
+
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
   }
+
+  if (!response.ok) {
+    const message =
+      body?.detail ||
+      body?.message ||
+      `Request failed (${response.status})`;
+
+    throw new Error(message);
+  }
+
   return body;
 }
 
-// ---------------- moderation modal ----------------
+function buildQuery(
+  params: Record<string, string | number | undefined | null>
+): string {
+  const searchParams = new URLSearchParams();
 
-type ModerationActionType = "warn" | "suspend" | "ban";
+  Object.entries(params).forEach(([key, value]) => {
+    if (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+    ) {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  return searchParams.toString();
+}
+
+// =========================================================
+// MODERATION MODAL
+// =========================================================
+
+type ModerationActionType =
+  | "warn"
+  | "suspend"
+  | "ban";
 
 interface ModerationModalProps {
   action: ModerationActionType;
   chatId: number;
-  userOptions: { id: number; name: string }[];
+  userOptions: {
+    id: number;
+    name: string;
+  }[];
   onClose: () => void;
   onDone: () => void;
 }
 
-function ModerationModal({ action, chatId, userOptions, onClose, onDone }: ModerationModalProps) {
-  const [userId, setUserId] = useState<number>(userOptions[0]?.id ?? 0);
+function ModerationModal({
+  action,
+  chatId,
+  userOptions,
+  onClose,
+  onDone,
+}: ModerationModalProps) {
+  const [userId, setUserId] = useState<number>(
+    userOptions[0]?.id ?? 0
+  );
+
   const [reason, setReason] = useState("");
+
   const [duration, setDuration] = useState(60);
+
   const [busy, setBusy] = useState(false);
 
   const title =
-    action === "warn" ? "Warn User" :
-    action === "suspend" ? "Suspend User" : "Ban User";
+    action === "warn"
+      ? "Warn User"
+      : action === "suspend"
+        ? "Suspend User"
+        : "Ban User";
+
   const tone =
-    action === "warn" ? "text-amber-400" :
-    action === "suspend" ? "text-orange-400" : "text-rose-400";
+    action === "warn"
+      ? "text-amber-400"
+      : action === "suspend"
+        ? "text-orange-400"
+        : "text-rose-400";
 
   const submit = async () => {
+    if (!userId) {
+      toast.error("Please select a user");
+      return;
+    }
+
+    if (action === "suspend" && duration < 1) {
+      toast.error("Duration must be at least 1 minute");
+      return;
+    }
+
     setBusy(true);
+
     try {
-      const sp = new URLSearchParams();
-      sp.set("user_id", String(userId));
-      sp.set("admin_id", String(DEFAULT_ADMIN_ID));
-      if (reason.trim()) sp.set("reason", reason.trim());
-      if (action === "suspend") sp.set("duration", String(duration));
-      await postJson(`${API_BASE}/admin/chat-moderation/${chatId}/${action}?${sp.toString()}`);
-      toast.success(`${title} recorded`);
+      const params = new URLSearchParams();
+
+      params.set("user_id", String(userId));
+      params.set("admin_id", String(DEFAULT_ADMIN_ID));
+
+      if (reason.trim()) {
+        params.set("reason", reason.trim());
+      }
+
+      if (action === "suspend") {
+        params.set("duration", String(duration));
+      }
+
+      const url =
+        `${ADMIN_CHAT_API}/${chatId}/${action}?${params.toString()}`;
+
+      await postJson(url);
+
+      toast.success(`${title} recorded successfully`);
+
       onDone();
+
       onClose();
-    } catch (e: any) {
-      toast.error(e?.message || "Action failed");
+    } catch (error: any) {
+      toast.error(error?.message || "Moderation action failed");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="glass rounded-2xl p-6 w-full max-w-md">
-        <h3 className={`font-semibold mb-1 ${tone}`}>{title}</h3>
-        <p className="text-xs text-muted-foreground mb-4">Chat #{chatId} · recorded by admin #{DEFAULT_ADMIN_ID}</p>
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="glass rounded-2xl p-6 w-full max-w-md"
+      >
+        <h3 className={`font-semibold mb-1 ${tone}`}>
+          {title}
+        </h3>
 
-        <label className="text-[10px] text-muted-foreground uppercase">Target user</label>
-        <select value={userId} onChange={(e) => setUserId(+e.target.value)} className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none">
-          {userOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        <p className="text-xs text-muted-foreground mb-4">
+          Chat #{chatId} · recorded by admin #{DEFAULT_ADMIN_ID}
+        </p>
+
+        <label className="text-[10px] text-muted-foreground uppercase">
+          Target user
+        </label>
+
+        <select
+          value={userId}
+          onChange={(event) =>
+            setUserId(Number(event.target.value))
+          }
+          className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none"
+        >
+          {userOptions.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name} · #{user.id}
+            </option>
+          ))}
         </select>
 
-        <label className="text-[10px] text-muted-foreground uppercase">Reason</label>
+        <label className="text-[10px] text-muted-foreground uppercase">
+          Reason
+        </label>
+
         <input
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          onChange={(event) =>
+            setReason(event.target.value)
+          }
           placeholder="e.g. harassment, spam…"
           className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none"
         />
 
         {action === "suspend" && (
           <>
-            <label className="text-[10px] text-muted-foreground uppercase">Duration (minutes)</label>
+            <label className="text-[10px] text-muted-foreground uppercase">
+              Duration (minutes)
+            </label>
+
             <input
               type="number"
               min={1}
               value={duration}
-              onChange={(e) => setDuration(Math.max(1, +e.target.value))}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+
+                setDuration(
+                  Number.isFinite(value)
+                    ? Math.max(1, value)
+                    : 1
+                );
+              }}
               className="w-full glass rounded-xl px-3 py-2 text-sm mb-3 outline-none"
             />
           </>
         )}
 
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="rounded-full glass px-4 py-2 text-sm">Cancel</button>
-          <button onClick={submit} disabled={busy} className="rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-60">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-full glass px-4 py-2 text-sm"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={submit}
+            disabled={busy || userOptions.length === 0}
+            className="rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold flex items-center gap-2 disabled:opacity-60"
+          >
+            {busy && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+
             Confirm
           </button>
         </div>
@@ -543,222 +802,600 @@ function ModerationModal({ action, chatId, userOptions, onClose, onDone }: Moder
   );
 }
 
-// ---------------- KPI ----------------
+// =========================================================
+// KPI CARD
+// =========================================================
 
-function Kpi({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone: string }) {
+function Kpi({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  tone: string;
+}) {
   return (
     <GlassCard className="relative overflow-hidden">
-      <div className={`absolute inset-0 bg-gradient-to-br opacity-50 pointer-events-none ${tone}`} />
+      <div
+        className={`absolute inset-0 bg-gradient-to-br opacity-50 pointer-events-none ${tone}`}
+      />
+
       <div className="relative flex items-start justify-between">
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-xl font-bold mt-1">{value}</p>
+          <p className="text-xs text-muted-foreground">
+            {label}
+          </p>
+
+          <p className="text-xl font-bold mt-1">
+            {value}
+          </p>
         </div>
+
         <Icon className="h-5 w-5 opacity-80" />
       </div>
     </GlassCard>
   );
 }
 
-// ---------------- page ----------------
+// =========================================================
+// CHAT MODERATION PAGE
+// =========================================================
 
 function ChatsPage() {
-  // Dashboard
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
+  // -------------------------------------------------------
+  // DASHBOARD
+  // -------------------------------------------------------
 
-  // Conversation list
-  const [convos, setConvos] = useState<ChatItem[]>([]);
+  const [overview, setOverview] =
+    useState<Overview | null>(null);
+
+  const [loadingOverview, setLoadingOverview] =
+    useState(true);
+
+  const [overviewError, setOverviewError] =
+    useState<string | null>(null);
+
+  // -------------------------------------------------------
+  // CONVERSATION LIST
+  // -------------------------------------------------------
+
+  const [convos, setConvos] =
+    useState<ChatItem[]>([]);
+
   const [listTotal, setListTotal] = useState(0);
-  const [listPage, setListPage] = useState(1);
-  const [listTotalPages, setListTotalPages] = useState(1);
-  const [loadingList, setLoadingList] = useState(true);
 
-  // Filters
-  const [searchInput, setSearchInput] = useState("");
+  const [listPage, setListPage] = useState(1);
+
+  const [listTotalPages, setListTotalPages] =
+    useState(1);
+
+  const [loadingList, setLoadingList] =
+    useState(true);
+
+  // -------------------------------------------------------
+  // FILTERS
+  // -------------------------------------------------------
+
+  const [searchInput, setSearchInput] =
+    useState("");
+
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "reported" | "flagged">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const [filterType, setFilterType] =
+    useState<"all" | "reported" | "flagged">("all");
+
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | "active" | "inactive">("all");
+
   const [startDate, setStartDate] = useState("");
+
   const [endDate, setEndDate] = useState("");
 
-  // Selected conversation + messages
-  const [selected, setSelected] = useState<ChatItem | null>(null);
-  const [messages, setMessages] = useState<MessageItem[]>([]);
+  // -------------------------------------------------------
+  // SELECTED CONVERSATION
+  // -------------------------------------------------------
+
+  const [selected, setSelected] =
+    useState<ChatItem | null>(null);
+
+  const [messages, setMessages] =
+    useState<MessageItem[]>([]);
+
   const [msgPage, setMsgPage] = useState(1);
-  const [msgTotalPages, setMsgTotalPages] = useState(1);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const [msgTotalPages, setMsgTotalPages] =
+    useState(1);
+
+  const [loadingMessages, setLoadingMessages] =
+    useState(false);
+
   const [msgSearch, setMsgSearch] = useState("");
 
-  // Tabs in the right pane
-  const [tab, setTab] = useState<"messages" | "reports" | "history">("messages");
-  const [reports, setReports] = useState<ReportItem[]>([]);
-  const [loadingReports, setLoadingReports] = useState(false);
-  const [actions, setActions] = useState<ModerationAction[]>([]);
-  const [loadingActions, setLoadingActions] = useState(false);
+  // -------------------------------------------------------
+  // TABS
+  // -------------------------------------------------------
 
-  // Moderation modal
-  const [modModal, setModModal] = useState<ModerationActionType | null>(null);
+  const [tab, setTab] =
+    useState<"messages" | "reports" | "history">(
+      "messages"
+    );
 
-  // ---- fetchers ----
+  const [reports, setReports] =
+    useState<ReportItem[]>([]);
+
+  const [loadingReports, setLoadingReports] =
+    useState(false);
+
+  const [actions, setActions] =
+    useState<ModerationAction[]>([]);
+
+  const [loadingActions, setLoadingActions] =
+    useState(false);
+
+  // -------------------------------------------------------
+  // MODERATION MODAL
+  // -------------------------------------------------------
+
+  const [modModal, setModModal] =
+    useState<ModerationActionType | null>(null);
+
+  // =======================================================
+  // LOAD DASHBOARD
+  // GET /admin/chat-moderation/dashboard
+  // =======================================================
 
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
     setOverviewError(null);
+
     try {
-      const j = await getJson(`${API_BASE}/admin/chat-moderation/dashboard`);
-      setOverview(j.data);
-    } catch (e: any) {
-      setOverviewError(e?.message || "Failed to load dashboard");
+      const response =
+        await getJson<ApiResponse<Overview>>(
+          `${ADMIN_CHAT_API}/dashboard`
+        );
+
+      setOverview(response.data);
+    } catch (error: any) {
+      setOverviewError(
+        error?.message || "Failed to load dashboard"
+      );
     } finally {
       setLoadingOverview(false);
     }
   }, []);
 
-  useEffect(() => { loadOverview(); }, [loadOverview]);
-
-  // debounce search
   useEffect(() => {
-    const t = setTimeout(() => { setSearch(searchInput); setListPage(1); }, 400);
-    return () => clearTimeout(t);
+    loadOverview();
+  }, [loadOverview]);
+
+  // =======================================================
+  // SEARCH DEBOUNCE
+  // =======================================================
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setListPage(1);
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const onFilterType = (v: "all" | "reported" | "flagged") => { setFilterType(v); setListPage(1); };
-  const onStatus = (v: "all" | "active" | "inactive") => { setStatusFilter(v); setListPage(1); };
-  const onStartDate = (v: string) => { setStartDate(v); setListPage(1); };
-  const onEndDate = (v: string) => { setEndDate(v); setListPage(1); };
+  // =======================================================
+  // FILTER HANDLERS
+  // =======================================================
 
-  const loadList = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      const sp = new URLSearchParams();
-      if (search.trim()) sp.set("search", search.trim());
-      if (filterType !== "all") sp.set("filter_type", filterType);
-      if (statusFilter !== "all") sp.set("status", statusFilter);
-      if (startDate) sp.set("start_date", `${startDate}T00:00:00`);
-      if (endDate) sp.set("end_date", `${endDate}T23:59:59`);
-      sp.set("page", String(listPage));
-      sp.set("limit", String(LIST_LIMIT));
-      const j = await getJson(`${API_BASE}/admin/chat-moderation?${sp.toString()}`);
-      setConvos(j.data || []);
-      const p: Pagination = j.pagination;
-      setListTotal(p?.total ?? 0);
-      setListTotalPages(p?.total_pages ?? 1);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to load conversations");
-      setConvos([]);
-    } finally {
-      setLoadingList(false);
-    }
-  }, [search, filterType, statusFilter, startDate, endDate, listPage]);
-
-  useEffect(() => { loadList(); }, [loadList]);
-
-  const loadMessages = useCallback(async (chatId: number, page: number) => {
-    setLoadingMessages(true);
-    try {
-      const sp = new URLSearchParams();
-      if (msgSearch.trim()) sp.set("search", msgSearch.trim());
-      sp.set("page", String(page));
-      sp.set("limit", String(MESSAGE_LIMIT));
-      const j = await getJson(`${API_BASE}/admin/chat-moderation/${chatId}/messages?${sp.toString()}`);
-      setMessages(j.data || []);
-      setMsgTotalPages(j.pagination?.total_pages ?? 1);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to load messages");
-      setMessages([]);
-    } finally {
-      setLoadingMessages(false);
-    }
-  }, [msgSearch]);
-
-  const loadReports = useCallback(async (chatId: number) => {
-    setLoadingReports(true);
-    try {
-      const sp = new URLSearchParams();
-      sp.set("chat_id", String(chatId));
-      sp.set("page", "1");
-      sp.set("limit", String(REPORTS_LIMIT));
-      const j = await getJson(`${API_BASE}/admin/chat-moderation/reports/list?${sp.toString()}`);
-      setReports(j.data || []);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to load reports");
-      setReports([]);
-    } finally {
-      setLoadingReports(false);
-    }
-  }, []);
-
-  const loadActions = useCallback(async (chatId: number) => {
-    setLoadingActions(true);
-    try {
-      const j = await getJson(`${API_BASE}/admin/chat-moderation/${chatId}/actions`);
-      setActions(j.data || []);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to load history");
-      setActions([]);
-    } finally {
-      setLoadingActions(false);
-    }
-  }, []);
-
-  // When a conversation is selected, reset pagination and load messages + (if on those tabs) reports/history
-  const selectConvo = (c: ChatItem) => {
-    setSelected(c);
-    setMsgPage(1);
-    setMsgSearch("");
-    setMessages([]);
-    setReports([]);
-    setActions([]);
-    loadMessages(c.chat_id, 1);
-    if (tab === "reports") loadReports(c.chat_id);
-    if (tab === "history") loadActions(c.chat_id);
+  const onFilterType = (
+    value: "all" | "reported" | "flagged"
+  ) => {
+    setFilterType(value);
+    setListPage(1);
   };
 
-  // Reload per-tab data when tab changes (and a conversation is selected)
+  const onStatus = (
+    value: "all" | "active" | "inactive"
+  ) => {
+    setStatusFilter(value);
+    setListPage(1);
+  };
+
+  const onStartDate = (value: string) => {
+    setStartDate(value);
+    setListPage(1);
+  };
+
+  const onEndDate = (value: string) => {
+    setEndDate(value);
+    setListPage(1);
+  };
+
+  // =======================================================
+  // LOAD CONVERSATIONS
+  // GET /admin/chat-moderation
+  // =======================================================
+
+  const loadList = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadingList(true);
+
+      try {
+        const query = buildQuery({
+          search: search || undefined,
+
+          filter_type:
+            filterType !== "all"
+              ? filterType
+              : undefined,
+
+          status:
+            statusFilter !== "all"
+              ? statusFilter
+              : undefined,
+
+          start_date: startDate
+            ? `${startDate}T00:00:00`
+            : undefined,
+
+          end_date: endDate
+            ? `${endDate}T23:59:59`
+            : undefined,
+
+          page: listPage,
+
+          limit: LIST_LIMIT,
+        });
+
+        const response =
+          await getJson<ApiResponse<ChatItem[]>>(
+            `${ADMIN_CHAT_API}?${query}`,
+            signal
+          );
+
+        setConvos(response.data || []);
+
+        setListTotal(
+          response.pagination?.total ?? 0
+        );
+
+        setListTotalPages(
+          Math.max(
+            1,
+            response.pagination?.total_pages ?? 1
+          )
+        );
+      } catch (error: any) {
+        if (error?.name === "AbortError") return;
+
+        toast.error(
+          error?.message || "Failed to load conversations"
+        );
+
+        setConvos([]);
+        setListTotal(0);
+        setListTotalPages(1);
+      } finally {
+        if (!signal?.aborted) {
+          setLoadingList(false);
+        }
+      }
+    },
+    [
+      search,
+      filterType,
+      statusFilter,
+      startDate,
+      endDate,
+      listPage,
+    ]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    loadList(controller.signal);
+
+    return () => controller.abort();
+  }, [loadList]);
+
+  // =======================================================
+  // LOAD MESSAGES
+  // GET /admin/chat-moderation/{chat_id}/messages
+  // =======================================================
+
+  const loadMessages = useCallback(
+    async (
+      chatId: number,
+      page: number,
+      searchValue: string,
+      signal?: AbortSignal
+    ) => {
+      setLoadingMessages(true);
+
+      try {
+        const query = buildQuery({
+          search: searchValue.trim() || undefined,
+          page,
+          limit: MESSAGE_LIMIT,
+        });
+
+        const response =
+          await getJson<ApiResponse<MessageItem[]>>(
+            `${ADMIN_CHAT_API}/${chatId}/messages?${query}`,
+            signal
+          );
+
+        setMessages(response.data || []);
+
+        setMsgTotalPages(
+          Math.max(
+            1,
+            response.pagination?.total_pages ?? 1
+          )
+        );
+      } catch (error: any) {
+        if (error?.name === "AbortError") return;
+
+        toast.error(
+          error?.message || "Failed to load messages"
+        );
+
+        setMessages([]);
+        setMsgTotalPages(1);
+      } finally {
+        if (!signal?.aborted) {
+          setLoadingMessages(false);
+        }
+      }
+    },
+    []
+  );
+
+  // Automatically reload messages whenever:
+  // selected conversation, page, or message search changes.
+
+  useEffect(() => {
+    if (!selected) {
+      setMessages([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+      loadMessages(
+        selected.chat_id,
+        msgPage,
+        msgSearch,
+        controller.signal
+      );
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    selected,
+    msgPage,
+    msgSearch,
+    loadMessages,
+  ]);
+
+  // =======================================================
+  // LOAD REPORTS
+  // GET /admin/chat-moderation/reports/list
+  // =======================================================
+
+  const loadReports = useCallback(
+    async (chatId: number) => {
+      setLoadingReports(true);
+
+      try {
+        const query = buildQuery({
+          chat_id: chatId,
+          page: 1,
+          limit: REPORTS_LIMIT,
+        });
+
+        const response =
+          await getJson<ApiResponse<ReportItem[]>>(
+            `${ADMIN_CHAT_API}/reports/list?${query}`
+          );
+
+        setReports(response.data || []);
+      } catch (error: any) {
+        toast.error(
+          error?.message || "Failed to load reports"
+        );
+
+        setReports([]);
+      } finally {
+        setLoadingReports(false);
+      }
+    },
+    []
+  );
+
+  // =======================================================
+  // LOAD MODERATION HISTORY
+  // GET /admin/chat-moderation/{chat_id}/actions
+  // =======================================================
+
+  const loadActions = useCallback(
+    async (chatId: number) => {
+      setLoadingActions(true);
+
+      try {
+        const response =
+          await getJson<ApiResponse<ModerationAction[]>>(
+            `${ADMIN_CHAT_API}/${chatId}/actions`
+          );
+
+        setActions(response.data || []);
+      } catch (error: any) {
+        toast.error(
+          error?.message || "Failed to load moderation history"
+        );
+
+        setActions([]);
+      } finally {
+        setLoadingActions(false);
+      }
+    },
+    []
+  );
+
+  // =======================================================
+  // SELECT CONVERSATION
+  // =======================================================
+
+  const selectConvo = (conversation: ChatItem) => {
+    setSelected(conversation);
+
+    setMsgPage(1);
+
+    setMsgSearch("");
+
+    setMessages([]);
+
+    setReports([]);
+
+    setActions([]);
+  };
+
+  // =======================================================
+  // LOAD CURRENT TAB DATA
+  // =======================================================
+
   useEffect(() => {
     if (!selected) return;
-    if (tab === "reports") loadReports(selected.chat_id);
-    if (tab === "history") loadActions(selected.chat_id);
-  }, [tab, selected, loadReports, loadActions]);
+
+    if (tab === "reports") {
+      loadReports(selected.chat_id);
+    }
+
+    if (tab === "history") {
+      loadActions(selected.chat_id);
+    }
+  }, [
+    tab,
+    selected,
+    loadReports,
+    loadActions,
+  ]);
+
+  // =======================================================
+  // RESOLVE REPORT
+  // POST /admin/chat-moderation/reports/{report_id}/resolve
+  // =======================================================
 
   const resolveReport = async (reportId: number) => {
     try {
-      await postJson(`${API_BASE}/admin/chat-moderation/reports/${reportId}/resolve`);
-      toast.success("Report resolved");
-      if (selected) loadReports(selected.chat_id);
-      loadOverview(); // refresh pending count
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to resolve report");
+      await postJson(
+        `${ADMIN_CHAT_API}/reports/${reportId}/resolve`
+      );
+
+      toast.success("Report resolved successfully");
+
+      if (selected) {
+        await loadReports(selected.chat_id);
+      }
+
+      await loadOverview();
+
+      await loadList();
+    } catch (error: any) {
+      toast.error(
+        error?.message || "Failed to resolve report"
+      );
     }
   };
+
+  // =======================================================
+  // MODERATION USERS
+  // =======================================================
 
   const userOptions = useMemo(() => {
     if (!selected) return [];
-    const opts: { id: number; name: string }[] = [];
-    if (selected.user_one) opts.push({ id: selected.user_one.id, name: selected.user_one.name });
-    if (selected.user_two) opts.push({ id: selected.user_two.id, name: selected.user_two.name });
-    return opts;
+
+    const options: {
+      id: number;
+      name: string;
+    }[] = [];
+
+    if (selected.user_one) {
+      options.push({
+        id: selected.user_one.id,
+        name: selected.user_one.name,
+      });
+    }
+
+    if (selected.user_two) {
+      options.push({
+        id: selected.user_two.id,
+        name: selected.user_two.name,
+      });
+    }
+
+    return options;
   }, [selected]);
+
+  // =======================================================
+  // REFRESH
+  // =======================================================
 
   const refreshAll = () => {
     loadOverview();
+
     loadList();
-    if (selected) {
-      loadMessages(selected.chat_id, msgPage);
-      if (tab === "reports") loadReports(selected.chat_id);
-      if (tab === "history") loadActions(selected.chat_id);
+
+    if (!selected) return;
+
+    if (tab === "messages") {
+      loadMessages(
+        selected.chat_id,
+        msgPage,
+        msgSearch
+      );
+    }
+
+    if (tab === "reports") {
+      loadReports(selected.chat_id);
+    }
+
+    if (tab === "history") {
+      loadActions(selected.chat_id);
     }
   };
 
-  const hasFilters = search || filterType !== "all" || statusFilter !== "all" || startDate || endDate;
+  // =======================================================
+  // FILTERS
+  // =======================================================
+
+  const hasFilters =
+    searchInput ||
+    search ||
+    filterType !== "all" ||
+    statusFilter !== "all" ||
+    startDate ||
+    endDate;
+
   const clearFilters = () => {
-    setSearchInput(""); setSearch(""); setFilterType("all");
-    setStatusFilter("all"); setStartDate(""); setEndDate(""); setListPage(1);
+    setSearchInput("");
+    setSearch("");
+    setFilterType("all");
+    setStatusFilter("all");
+    setStartDate("");
+    setEndDate("");
+    setListPage(1);
   };
 
-  // ---- render ----
+  // =======================================================
+  // INITIAL LOADING
+  // =======================================================
 
   if (loadingOverview && !overview) {
     return (
@@ -768,23 +1405,46 @@ function ChatsPage() {
     );
   }
 
+  // =======================================================
+  // DASHBOARD ERROR
+  // =======================================================
+
   if (overviewError && !overview) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Chat Moderation" subtitle="Monitor conversations & enforce policy" />
+        <PageHeader
+          title="Chat Moderation"
+          subtitle="Monitor conversations & enforce policy"
+        />
+
         <GlassCard className="text-center py-20 flex flex-col items-center gap-4">
           <AlertCircle className="h-12 w-12 text-destructive" />
+
           <div>
-            <h3 className="font-bold text-lg">Failed to Load Dashboard</h3>
-            <p className="text-sm text-muted-foreground mt-1">{overviewError}</p>
+            <h3 className="font-bold text-lg">
+              Failed to Load Dashboard
+            </h3>
+
+            <p className="text-sm text-muted-foreground mt-1">
+              {overviewError}
+            </p>
           </div>
-          <button onClick={loadOverview} className="rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" /> Retry
+
+          <button
+            onClick={loadOverview}
+            className="rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry
           </button>
         </GlassCard>
       </div>
     );
   }
+
+  // =======================================================
+  // MAIN UI
+  // =======================================================
 
   return (
     <div className="space-y-6">
@@ -792,290 +1452,828 @@ function ChatsPage() {
         title="Chat Moderation"
         subtitle="Monitor conversations & enforce policy"
         action={
-          <button onClick={refreshAll} disabled={loadingOverview || loadingList} className="glass rounded-full px-3 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
-            <RefreshCw className={`h-4 w-4 ${loadingOverview || loadingList ? "animate-spin" : ""}`} /> Refresh
+          <button
+            onClick={refreshAll}
+            disabled={loadingOverview || loadingList}
+            className="glass rounded-full px-3 py-2 text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                loadingOverview || loadingList
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
+            Refresh
           </button>
         }
       />
 
-      {/* KPIs */}
+      {/* ===================================================
+          KPI CARDS
+      =================================================== */}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Total Chats" value={(overview?.total_conversations ?? 0).toLocaleString()} icon={MessageSquare} tone="from-primary/20 to-primary/5" />
-        <Kpi label="Active Chats" value={(overview?.active_conversations ?? 0).toLocaleString()} icon={MessageSquare} tone="from-emerald-500/20 to-emerald-500/5" />
-        <Kpi label="Pending Reports" value={(overview?.pending_reports ?? 0).toLocaleString()} icon={Flag} tone="from-rose-500/20 to-rose-500/5" />
-        <Kpi label="Flagged Messages" value={(overview?.flagged_messages ?? 0).toLocaleString()} icon={ShieldAlert} tone="from-amber-500/20 to-amber-500/5" />
+        <Kpi
+          label="Total Chats"
+          value={(
+            overview?.total_conversations ?? 0
+          ).toLocaleString()}
+          icon={MessageSquare}
+          tone="from-primary/20 to-primary/5"
+        />
+
+        <Kpi
+          label="Active Chats"
+          value={(
+            overview?.active_conversations ?? 0
+          ).toLocaleString()}
+          icon={MessageSquare}
+          tone="from-emerald-500/20 to-emerald-500/5"
+        />
+
+        <Kpi
+          label="Pending Reports"
+          value={(
+            overview?.pending_reports ?? 0
+          ).toLocaleString()}
+          icon={Flag}
+          tone="from-rose-500/20 to-rose-500/5"
+        />
+
+        <Kpi
+          label="Flagged Messages"
+          value={(
+            overview?.flagged_messages ?? 0
+          ).toLocaleString()}
+          icon={ShieldAlert}
+          tone="from-amber-500/20 to-amber-500/5"
+        />
       </div>
 
-      {/* Filters */}
+      {/* ===================================================
+          FILTERS
+      =================================================== */}
+
       <GlassCard>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
             <input
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={(event) =>
+                setSearchInput(event.target.value)
+              }
               placeholder="Search users, messages, chat ID…"
               className="w-full glass rounded-full pl-9 pr-4 py-2 text-sm outline-none"
             />
           </div>
+
+          {/* Filter type */}
+
           <div className="flex rounded-full glass p-1 text-xs">
-            {(["all", "reported", "flagged"] as const).map((k) => (
-              <button key={k} onClick={() => onFilterType(k)} className={`px-3 py-1 rounded-full capitalize ${filterType === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>{k}</button>
+            {(
+              ["all", "reported", "flagged"] as const
+            ).map((value) => (
+              <button
+                key={value}
+                onClick={() => onFilterType(value)}
+                className={`px-3 py-1 rounded-full capitalize ${
+                  filterType === value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {value}
+              </button>
             ))}
           </div>
-          <select value={statusFilter} onChange={(e) => onStatus(e.target.value as any)} className="glass rounded-full px-3 py-2 text-xs outline-none">
+
+          {/* Status */}
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              onStatus(
+                event.target.value as
+                  | "all"
+                  | "active"
+                  | "inactive"
+              )
+            }
+            className="glass rounded-full px-3 py-2 text-xs outline-none"
+          >
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <input type="date" value={startDate} onChange={(e) => onStartDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <input type="date" value={endDate} onChange={(e) => onEndDate(e.target.value)} className="glass rounded-full px-3 py-2 text-xs outline-none" />
+
+          {/* Start date */}
+
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) =>
+              onStartDate(event.target.value)
+            }
+            className="glass rounded-full px-3 py-2 text-xs outline-none"
+          />
+
+          <span className="text-xs text-muted-foreground">
+            to
+          </span>
+
+          {/* End date */}
+
+          <input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(event) =>
+              onEndDate(event.target.value)
+            }
+            className="glass rounded-full px-3 py-2 text-xs outline-none"
+          />
+
           {hasFilters && (
-            <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+            <button
+              onClick={clearFilters}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
           )}
         </div>
       </GlassCard>
 
-      {/* Split panel */}
+      {/* ===================================================
+          SPLIT PANEL
+      =================================================== */}
+
       <div className="grid lg:grid-cols-[360px_1fr] gap-4">
-        {/* Conversation list */}
+        {/* =================================================
+            CONVERSATION LIST
+        ================================================= */}
+
         <GlassCard className="p-0 overflow-hidden max-h-[70vh] flex flex-col">
+          {/* List header */}
+
           <div className="p-3 border-b border-border/40 text-xs text-muted-foreground flex items-center justify-between">
-            <span>{loadingList ? "Loading…" : `${listTotal} conversations`}</span>
-            <span className="text-[10px]">page {listPage}/{listTotalPages}</span>
+            <span>
+              {loadingList
+                ? "Loading…"
+                : `${listTotal} conversations`}
+            </span>
+
+            <span className="text-[10px]">
+              page {listPage}/{listTotalPages}
+            </span>
           </div>
+
+          {/* List body */}
+
           <div className="overflow-y-auto flex-1 divide-y divide-border/20">
             {loadingList ? (
               <div className="p-8 text-center text-xs text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin inline-block mb-2" /> Loading…
+                <Loader2 className="h-5 w-5 animate-spin inline-block mb-2" />
+
+                <p>Loading conversations…</p>
               </div>
             ) : convos.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-8">No conversations</p>
-            ) : convos.map((c) => {
-              const active = selected?.chat_id === c.chat_id;
-              const u1 = c.user_one, u2 = c.user_two;
-              return (
-                <button key={c.chat_id} onClick={() => selectConvo(c)} className={`w-full text-left p-3 transition flex gap-3 ${active ? "bg-primary/15" : "hover:bg-card/40"}`}>
-                  <div className="flex -space-x-3 flex-shrink-0">
-                    <img src={avatarUrl(u1?.id ?? u1?.name)} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
-                    <img src={avatarUrl(u2?.id ?? u2?.name)} className="h-8 w-8 rounded-full ring-2 ring-background object-cover" alt="" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="text-xs font-semibold truncate">{u1?.name ?? "—"} → {u2?.name ?? "—"}</p>
-                      <span className="text-[10px] text-muted-foreground">{relative(c.last_message_at || c.updated_at)}</span>
+              <p className="text-center text-xs text-muted-foreground py-8">
+                No conversations found
+              </p>
+            ) : (
+              convos.map((conversation) => {
+                const active =
+                  selected?.chat_id === conversation.chat_id;
+
+                const userOne = conversation.user_one;
+
+                const userTwo = conversation.user_two;
+
+                return (
+                  <button
+                    key={conversation.chat_id}
+                    onClick={() =>
+                      selectConvo(conversation)
+                    }
+                    className={`w-full text-left p-3 transition flex gap-3 ${
+                      active
+                        ? "bg-primary/15"
+                        : "hover:bg-card/40"
+                    }`}
+                  >
+                    {/* Avatars */}
+
+                    <div className="flex -space-x-3 flex-shrink-0">
+                      <img
+                        src={avatarUrl(
+                          userOne?.id ?? userOne?.name
+                        )}
+                        className="h-8 w-8 rounded-full ring-2 ring-background object-cover"
+                        alt=""
+                      />
+
+                      <img
+                        src={avatarUrl(
+                          userTwo?.id ?? userTwo?.name
+                        )}
+                        className="h-8 w-8 rounded-full ring-2 ring-background object-cover"
+                        alt=""
+                      />
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{c.last_message || "—"}</p>
-                    <div className="flex items-center gap-1 mt-1 flex-wrap">
-                      {c.pending_report_count > 0 && (
-                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-rose-500/15 text-rose-400 inline-flex items-center gap-0.5">
-                          <Flag className="h-2.5 w-2.5" />{c.pending_report_count}
+
+                    {/* Conversation information */}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-xs font-semibold truncate">
+                          {userOne?.name ?? "Unknown"} →{" "}
+                          {userTwo?.name ?? "Unknown"}
+                        </p>
+
+                        <span className="text-[10px] text-muted-foreground">
+                          {relative(
+                            conversation.last_message_at ||
+                              conversation.updated_at
+                          )}
                         </span>
-                      )}
-                      <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground inline-flex items-center gap-0.5">
-                        <MessageSquare className="h-2.5 w-2.5" />{c.message_count}
-                      </span>
-                      {c.status ? (
-                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-emerald-500/15 text-emerald-400">active</span>
-                      ) : (
-                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground">inactive</span>
-                      )}
+                      </div>
+
+                      <p className="text-xs text-muted-foreground truncate">
+                        {conversation.last_message || "—"}
+                      </p>
+
+                      {/* Conversation badges */}
+
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        {conversation.pending_report_count > 0 && (
+                          <span className="text-[10px] rounded-full px-1.5 py-0 bg-rose-500/15 text-rose-400 inline-flex items-center gap-0.5">
+                            <Flag className="h-2.5 w-2.5" />
+
+                            {conversation.pending_report_count}
+                          </span>
+                        )}
+
+                        <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground inline-flex items-center gap-0.5">
+                          <MessageSquare className="h-2.5 w-2.5" />
+
+                          {conversation.message_count}
+                        </span>
+
+                        {conversation.status ? (
+                          <span className="text-[10px] rounded-full px-1.5 py-0 bg-emerald-500/15 text-emerald-400">
+                            active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] rounded-full px-1.5 py-0 bg-muted/30 text-muted-foreground">
+                            inactive
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })
+            )}
           </div>
-          {/* list pagination */}
+
+          {/* List pagination */}
+
           <div className="p-2 border-t border-border/40 flex items-center justify-between text-[10px]">
-            <button disabled={listPage <= 1} onClick={() => setListPage((p) => Math.max(1, p - 1))} className="glass rounded-full p-1.5 disabled:opacity-40">
+            <button
+              disabled={listPage <= 1 || loadingList}
+              onClick={() =>
+                setListPage((page) =>
+                  Math.max(1, page - 1)
+                )
+              }
+              className="glass rounded-full p-1.5 disabled:opacity-40"
+            >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="text-muted-foreground">{listPage} / {listTotalPages}</span>
-            <button disabled={listPage >= listTotalPages} onClick={() => setListPage((p) => Math.min(listTotalPages, p + 1))} className="glass rounded-full p-1.5 disabled:opacity-40">
+
+            <span className="text-muted-foreground">
+              {listPage} / {listTotalPages}
+            </span>
+
+            <button
+              disabled={
+                listPage >= listTotalPages || loadingList
+              }
+              onClick={() =>
+                setListPage((page) =>
+                  Math.min(listTotalPages, page + 1)
+                )
+              }
+              className="glass rounded-full p-1.5 disabled:opacity-40"
+            >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </GlassCard>
 
-        {/* Chat viewer */}
+        {/* =================================================
+            CHAT VIEWER
+        ================================================= */}
+
         <GlassCard className="p-0 overflow-hidden flex flex-col max-h-[70vh]">
           {selected ? (
             <>
+              {/* Chat header */}
+
               <div className="p-3 border-b border-border/40 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-3">
-                    <img src={avatarUrl(selected.user_one?.id ?? selected.user_one?.name)} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
-                    <img src={avatarUrl(selected.user_two?.id ?? selected.user_two?.name)} className="h-9 w-9 rounded-full ring-2 ring-background object-cover" alt="" />
+                    <img
+                      src={avatarUrl(
+                        selected.user_one?.id ??
+                          selected.user_one?.name
+                      )}
+                      className="h-9 w-9 rounded-full ring-2 ring-background object-cover"
+                      alt=""
+                    />
+
+                    <img
+                      src={avatarUrl(
+                        selected.user_two?.id ??
+                          selected.user_two?.name
+                      )}
+                      className="h-9 w-9 rounded-full ring-2 ring-background object-cover"
+                      alt=""
+                    />
                   </div>
+
                   <div>
-                    <p className="text-sm font-semibold">{selected.user_one?.name ?? "—"} ↔ {selected.user_two?.name ?? "—"}</p>
+                    <p className="text-sm font-semibold">
+                      {selected.user_one?.name ?? "Unknown"} ↔{" "}
+                      {selected.user_two?.name ?? "Unknown"}
+                    </p>
+
                     <p className="text-[10px] text-muted-foreground">
-                      #{selected.chat_id} · {selected.message_count} messages · {selected.pending_report_count} pending report{selected.pending_report_count === 1 ? "" : "s"}
+                      #{selected.chat_id} ·{" "}
+                      {selected.message_count} messages ·{" "}
+                      {selected.pending_report_count} pending reports
                     </p>
                   </div>
                 </div>
+
+                {/* Moderation buttons */}
+
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setModModal("warn")} className="rounded-full bg-amber-500/15 text-amber-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" />Warn</button>
-                  <button onClick={() => setModModal("suspend")} className="rounded-full bg-orange-500/15 text-orange-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><UserX className="h-3 w-3" />Suspend</button>
-                  <button onClick={() => setModModal("ban")} className="rounded-full bg-rose-500/15 text-rose-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1"><Ban className="h-3 w-3" />Ban</button>
+                  <button
+                    onClick={() => setModModal("warn")}
+                    disabled={userOptions.length === 0}
+                    className="rounded-full bg-amber-500/15 text-amber-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+
+                    Warn
+                  </button>
+
+                  <button
+                    onClick={() => setModModal("suspend")}
+                    disabled={userOptions.length === 0}
+                    className="rounded-full bg-orange-500/15 text-orange-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <UserX className="h-3 w-3" />
+
+                    Suspend
+                  </button>
+
+                  <button
+                    onClick={() => setModModal("ban")}
+                    disabled={userOptions.length === 0}
+                    className="rounded-full bg-rose-500/15 text-rose-400 px-2.5 py-1 text-[10px] inline-flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <Ban className="h-3 w-3" />
+
+                    Ban
+                  </button>
                 </div>
               </div>
 
-              {/* tabs */}
+              {/* =================================================
+                  TABS
+              ================================================= */}
+
               <div className="px-3 pt-2 flex items-center gap-1 text-xs border-b border-border/40">
-                {([
-                  { k: "messages", label: "Messages", icon: MessageSquare },
-                  { k: "reports", label: `Reports${reports.length ? ` (${reports.filter(r => !r.is_resolved).length})` : ""}`, icon: Flag },
-                  { k: "history", label: "History", icon: History },
-                ] as const).map((t) => (
+                {(
+                  [
+                    {
+                      key: "messages",
+                      label: "Messages",
+                      icon: MessageSquare,
+                    },
+                    // {
+                    //   key: "reports",
+                    //   label: `Reports${
+                    //     reports.length
+                    //       ? ` (${reports.filter((r) => !r.is_resolved).length})`
+                    //       : ""
+                    //   }`,
+                    //   icon: Flag,
+                    // },
+                    {
+                      key: "history",
+                      label: "History",
+                      icon: History,
+                    },
+                  ] as const
+                ).map((item) => (
                   <button
-                    key={t.k}
-                    onClick={() => setTab(t.k)}
-                    className={`px-3 py-1.5 rounded-t-lg inline-flex items-center gap-1.5 ${tab === t.k ? "bg-card/40 text-foreground font-semibold" : "text-muted-foreground"}`}
+                    key={item.key}
+                    onClick={() => setTab(item.key)}
+                    className={`px-3 py-1.5 rounded-t-lg inline-flex items-center gap-1.5 ${
+                      tab === item.key
+                        ? "bg-card/40 text-foreground font-semibold"
+                        : "text-muted-foreground"
+                    }`}
                   >
-                    <t.icon className="h-3 w-3" />{t.label}
+                    <item.icon className="h-3 w-3" />
+
+                    {item.label}
                   </button>
                 ))}
               </div>
 
-              {/* tab content */}
+              {/* =================================================
+                  TAB CONTENT
+              ================================================= */}
+
               <div className="flex-1 overflow-y-auto">
+                {/* =================================================
+                    MESSAGES TAB
+                ================================================= */}
+
                 {tab === "messages" && (
                   <div className="p-4 space-y-3 bg-card/20">
-                    {/* message search */}
+                    {/* Message search */}
+
                     <div className="relative mb-2">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+
                       <input
                         value={msgSearch}
-                        onChange={(e) => { setMsgSearch(e.target.value); setMsgPage(1); }}
+                        onChange={(event) => {
+                          setMsgSearch(event.target.value);
+                          setMsgPage(1);
+                        }}
                         placeholder="Search messages…"
                         className="w-full glass rounded-full pl-8 pr-3 py-1.5 text-xs outline-none"
                       />
                     </div>
 
-                    {loadingMessages ? (
-                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading messages…</div>
-                    ) : messages.length === 0 ? (
-                      <p className="text-center text-xs text-muted-foreground py-6">No messages</p>
-                    ) : messages.map((m) => {
-                      const mine = selected.user_one_id === m.sender_id;
-                      const isGift = (m.message_type || "").toLowerCase().includes("gift");
-                      const isImage = (m.message_type || "").toLowerCase().includes("image") || /\.(png|jpe?g|gif|webp)$/i.test(m.attachment || "");
+                    {/* Loading */}
 
-                      return (
-                        <div key={m.message_id} className={`flex ${mine ? "justify-start" : "justify-end"} gap-2`}>
-                          {mine && <img src={avatarUrl(m.sender?.id ?? m.sender?.name)} className="h-7 w-7 rounded-full object-cover" alt="" />}
-                          <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-card" : "bg-primary text-primary-foreground"}`}>
-                            <p className="text-[10px] opacity-60 mb-0.5">{m.sender?.name ?? "Unknown"}</p>
-                            {m.message && <p>{m.message}</p>}
-                            {isImage && m.attachment && (
-                              <div className="mt-1">
-                                <a href={m.attachment} target="_blank" rel="noreferrer">
-                                  <img src={m.attachment} className="rounded-lg max-h-40 object-cover" alt="" />
-                                </a>
-                                <p className="text-[10px] opacity-70 mt-1 inline-flex items-center gap-1"><ImageIcon className="h-2.5 w-2.5" /> Image</p>
-                              </div>
+                    {loadingMessages ? (
+                      <div className="text-center text-xs text-muted-foreground py-6">
+                        <Loader2 className="h-4 w-4 animate-spin inline-block mr-1" />
+
+                        Loading messages…
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">
+                        No messages found
+                      </p>
+                    ) : (
+                      messages.map((message) => {
+                        const mine =
+                          selected.user_one_id ===
+                          message.sender_id;
+
+                        const messageType =
+                          (message.message_type || "").toLowerCase();
+
+                        const isGift =
+                          messageType.includes("gift");
+
+                        const isImage =
+                          messageType.includes("image") ||
+                          /\.(png|jpe?g|gif|webp)$/i.test(
+                            message.attachment || ""
+                          );
+
+                        return (
+                          <div
+                            key={message.message_id}
+                            className={`flex ${
+                              mine
+                                ? "justify-start"
+                                : "justify-end"
+                            } gap-2`}
+                          >
+                            {mine && (
+                              <img
+                                src={avatarUrl(
+                                  message.sender?.id ??
+                                    message.sender?.name
+                                )}
+                                className="h-7 w-7 rounded-full object-cover"
+                                alt=""
+                              />
                             )}
-                            {isGift && (
-                              <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">
-                                <Gift className="h-3 w-3" /> Gift
-                              </div>
-                            )}
-                            {m.report_count > 0 && (
-                              <p className="text-[10px] mt-1 inline-flex items-center gap-1 text-rose-400">
-                                <Flag className="h-2.5 w-2.5" /> {m.report_count} report{m.report_count === 1 ? "" : "s"}
+
+                            <div
+                              className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${
+                                mine
+                                  ? "bg-card"
+                                  : "bg-primary text-primary-foreground"
+                              }`}
+                            >
+                              <p className="text-[10px] opacity-60 mb-0.5">
+                                {message.sender?.name ??
+                                  "Unknown"}
                               </p>
+
+                              {/* Message text */}
+
+                              {message.message && (
+                                <p className="whitespace-pre-wrap break-words">
+                                  {message.message}
+                                </p>
+                              )}
+
+                              {/* Image attachment */}
+
+                              {isImage &&
+                                message.attachment && (
+                                  <div className="mt-1">
+                                    <a
+                                      href={message.attachment}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      <img
+                                        src={message.attachment}
+                                        className="rounded-lg max-h-40 object-cover"
+                                        alt="Chat attachment"
+                                      />
+                                    </a>
+
+                                    <p className="text-[10px] opacity-70 mt-1 inline-flex items-center gap-1">
+                                      <ImageIcon className="h-2.5 w-2.5" />
+
+                                      Image
+                                    </p>
+                                  </div>
+                                )}
+
+                              {/* Gift */}
+
+                              {isGift && (
+                                <div className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-xs">
+                                  <Gift className="h-3 w-3" />
+
+                                  Gift
+                                </div>
+                              )}
+
+                              {/* Reports */}
+
+                              {message.report_count > 0 && (
+                                <p className="text-[10px] mt-1 inline-flex items-center gap-1 text-rose-400">
+                                  <Flag className="h-2.5 w-2.5" />
+
+                                  {message.report_count} report
+                                  {message.report_count === 1
+                                    ? ""
+                                    : "s"}
+                                </p>
+                              )}
+
+                              {/* Timestamp */}
+
+                              <p className="text-[10px] opacity-60 mt-1 text-right">
+                                {fmtTime(message.created_at)}
+                              </p>
+                            </div>
+
+                            {!mine && (
+                              <img
+                                src={avatarUrl(
+                                  message.sender?.id ??
+                                    message.sender?.name
+                                )}
+                                className="h-7 w-7 rounded-full object-cover"
+                                alt=""
+                              />
                             )}
-                            <p className="text-[10px] opacity-60 mt-1 text-right">{fmtTime(m.created_at)}</p>
                           </div>
-                          {!mine && <img src={avatarUrl(m.sender?.id ?? m.sender?.name)} className="h-7 w-7 rounded-full object-cover" alt="" />}
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 )}
+
+                {/* =================================================
+                    REPORTS TAB
+                ================================================= */}
 
                 {tab === "reports" && (
                   <div className="p-4 space-y-2">
                     {loadingReports ? (
-                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading reports…</div>
-                    ) : reports.length === 0 ? (
-                      <p className="text-center text-xs text-muted-foreground py-6">No reports filed for this conversation</p>
-                    ) : reports.map((r) => (
-                      <div key={r.id} className="glass-strong rounded-xl p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Flag className="h-3.5 w-3.5 text-rose-400" />
-                            <span className="text-sm font-semibold">Report #{r.id}</span>
-                            {r.reason && <span className={`text-[10px] rounded-full px-2 py-0.5 border ${reasonTone(r.reason)}`}>{r.reason}</span>}
-                          </div>
-                          <span className={`text-[10px] rounded-full px-2 py-0.5 ${r.is_resolved ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
-                            {r.is_resolved ? "resolved" : "pending"}
-                          </span>
-                        </div>
-                        {r.description && <p className="text-xs text-muted-foreground mt-2">{r.description}</p>}
-                        <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
-                          <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3" /> msg #{r.message_id ?? "—"} · by user #{r.reported_by}</span>
-                          <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDateTime(r.created_at)}</span>
-                        </div>
-                        {!r.is_resolved && (
-                          <button
-                            onClick={() => resolveReport(r.id)}
-                            className="mt-2 rounded-full bg-emerald-500/15 text-emerald-400 px-3 py-1 text-[10px] inline-flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="h-3 w-3" /> Resolve
-                          </button>
-                        )}
+                      <div className="text-center text-xs text-muted-foreground py-6">
+                        <Loader2 className="h-4 w-4 animate-spin inline-block mr-1" />
+
+                        Loading reports…
                       </div>
-                    ))}
+                    ) : reports.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">
+                        No reports filed for this conversation
+                      </p>
+                    ) : (
+                      reports.map((report) => (
+                        <div
+                          key={report.id}
+                          className="glass-strong rounded-xl p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Flag className="h-3.5 w-3.5 text-rose-400" />
+
+                              <span className="text-sm font-semibold">
+                                Report #{report.id}
+                              </span>
+
+                              {report.reason && (
+                                <span
+                                  className={`text-[10px] rounded-full px-2 py-0.5 border ${reasonTone(
+                                    report.reason
+                                  )}`}
+                                >
+                                  {report.reason}
+                                </span>
+                              )}
+                            </div>
+
+                            <span
+                              className={`text-[10px] rounded-full px-2 py-0.5 ${
+                                report.is_resolved
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-amber-500/15 text-amber-400"
+                              }`}
+                            >
+                              {report.is_resolved
+                                ? "resolved"
+                                : "pending"}
+                            </span>
+                          </div>
+
+                          {report.description && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {report.description}
+                            </p>
+                          )}
+
+                          <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+
+                              msg #{report.message_id ?? "—"} · by user #{report.reported_by}
+                            </span>
+
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+
+                              {fmtDateTime(report.created_at)}
+                            </span>
+                          </div>
+
+                          {!report.is_resolved && (
+                            <button
+                              onClick={() =>
+                                resolveReport(report.id)
+                              }
+                              className="mt-2 rounded-full bg-emerald-500/15 text-emerald-400 px-3 py-1 text-[10px] inline-flex items-center gap-1"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+
+                              Resolve
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
+
+                {/* =================================================
+                    HISTORY TAB
+                ================================================= */}
 
                 {tab === "history" && (
                   <div className="p-4 space-y-2">
                     {loadingActions ? (
-                      <div className="text-center text-xs text-muted-foreground py-6"><Loader2 className="h-4 w-4 animate-spin inline-block mr-1" /> Loading history…</div>
-                    ) : actions.length === 0 ? (
-                      <p className="text-center text-xs text-muted-foreground py-6">No moderation actions recorded</p>
-                    ) : actions.map((a) => (
-                      <div key={a.id} className="glass-strong rounded-xl p-3 flex items-start gap-3">
-                        <div className={`text-[10px] rounded-full px-2 py-1 font-semibold uppercase ${actionTone(a.action)}`}>{a.action}</div>
-                        <div className="flex-1">
-                          <p className="text-xs">
-                            User #{a.user_id} · by admin #{a.admin_id}
-                            {a.duration ? ` · ${a.duration} min` : ""}
-                          </p>
-                          {a.reason && <p className="text-xs text-muted-foreground mt-1">{a.reason}</p>}
-                          <p className="text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDateTime(a.created_at)}</p>
-                        </div>
+                      <div className="text-center text-xs text-muted-foreground py-6">
+                        <Loader2 className="h-4 w-4 animate-spin inline-block mr-1" />
+
+                        Loading history…
                       </div>
-                    ))}
+                    ) : actions.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-6">
+                        No moderation actions recorded
+                      </p>
+                    ) : (
+                      actions.map((action) => (
+                        <div
+                          key={action.id}
+                          className="glass-strong rounded-xl p-3 flex items-start gap-3"
+                        >
+                          <div
+                            className={`text-[10px] rounded-full px-2 py-1 font-semibold uppercase ${actionTone(
+                              action.action
+                            )}`}
+                          >
+                            {action.action}
+                          </div>
+
+                          <div className="flex-1">
+                            <p className="text-xs">
+                              User #{action.user_id} · by admin #{action.admin_id}
+
+                              {action.duration
+                                ? ` · ${action.duration} min`
+                                : ""}
+                            </p>
+
+                            {action.reason && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {action.reason}
+                              </p>
+                            )}
+
+                            <p className="text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+
+                              {fmtDateTime(action.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* message pagination (only on messages tab) */}
+              {/* =================================================
+                  MESSAGE PAGINATION
+              ================================================= */}
+
               {tab === "messages" && (
                 <div className="p-2 border-t border-border/40 flex items-center justify-between text-[10px]">
-                  <button disabled={msgPage <= 1} onClick={() => { const p = Math.max(1, msgPage - 1); setMsgPage(p); if (selected) loadMessages(selected.chat_id, p); }} className="glass rounded-full p-1.5 disabled:opacity-40">
+                  <button
+                    disabled={
+                      msgPage <= 1 || loadingMessages
+                    }
+                    onClick={() =>
+                      setMsgPage((page) =>
+                        Math.max(1, page - 1)
+                      )
+                    }
+                    className="glass rounded-full p-1.5 disabled:opacity-40"
+                  >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
-                  <span className="text-muted-foreground">{msgPage} / {msgTotalPages}</span>
-                  <button disabled={msgPage >= msgTotalPages} onClick={() => { const p = Math.min(msgTotalPages, msgPage + 1); setMsgPage(p); if (selected) loadMessages(selected.chat_id, p); }} className="glass rounded-full p-1.5 disabled:opacity-40">
+
+                  <span className="text-muted-foreground">
+                    {msgPage} / {msgTotalPages}
+                  </span>
+
+                  <button
+                    disabled={
+                      msgPage >= msgTotalPages ||
+                      loadingMessages
+                    }
+                    onClick={() =>
+                      setMsgPage((page) =>
+                        Math.min(msgTotalPages, page + 1)
+                      )
+                    }
+                    className="glass rounded-full p-1.5 disabled:opacity-40"
+                  >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               )}
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Select a conversation</div>
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Select a conversation
+            </div>
           )}
         </GlassCard>
       </div>
 
-      {/* Moderation modal */}
+      {/* =====================================================
+          MODERATION MODAL
+      ===================================================== */}
+
       {modModal && selected && (
         <ModerationModal
           action={modModal}
@@ -1083,10 +2281,11 @@ function ChatsPage() {
           userOptions={userOptions}
           onClose={() => setModModal(null)}
           onDone={() => {
-            // Refresh history + overview after a moderation action
-            if (tab === "history") loadActions(selected.chat_id);
-            else loadActions(selected.chat_id);
+            loadActions(selected.chat_id);
+
             loadOverview();
+
+            loadList();
           }}
         />
       )}
