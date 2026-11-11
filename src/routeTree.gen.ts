@@ -75,7 +75,7 @@ import { Route as AppGamesIndexRouteImport } from './routes/app.games.index'
 import { Route as AppGamesColorConnectRouteImport } from './routes/app.games.color-connect'
 import { Route as AppGamesLeaderboardRouteImport } from './routes/app.games.leaderboard'
 import { Route as AppGamesScratchRouteImport } from './routes/app.games.scratch'
-import { Route as AppProfileEditRouteImport } from './routes/app.profile.edit'
+import { Route as AppProfileEditRouteImport } from './routes/app.profile_.edit'
 import { Route as AppWalletIndexRouteImport } from './routes/app.wallet.index'
 import { Route as AppWalletBuyRouteImport } from './routes/app.wallet.buy'
 import { Route as AppWalletTransactionsRouteImport } from './routes/app.wallet.transactions'
@@ -414,9 +414,9 @@ const AppGamesScratchRoute = AppGamesScratchRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileEditRoute = AppProfileEditRouteImport.update({
-  id: '/edit',
-  path: '/edit',
-  getParentRoute: () => AppProfileRoute,
+  id: '/profile_/edit',
+  path: '/profile/edit',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppWalletIndexRoute = AppWalletIndexRouteImport.update({
   id: '/wallet/',
@@ -484,7 +484,7 @@ export interface FileRoutesByFullPath {
   '/app/gifts': typeof AppGiftsRoute
   '/app/help': typeof AppHelpRoute
   '/app/notifications': typeof AppNotificationsRoute
-  '/app/profile': typeof AppProfileRouteWithChildren
+  '/app/profile': typeof AppProfileRoute
   '/app/rewards': typeof AppRewardsRoute
   '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
@@ -555,7 +555,7 @@ export interface FileRoutesByTo {
   '/app/gifts': typeof AppGiftsRoute
   '/app/help': typeof AppHelpRoute
   '/app/notifications': typeof AppNotificationsRoute
-  '/app/profile': typeof AppProfileRouteWithChildren
+  '/app/profile': typeof AppProfileRoute
   '/app/rewards': typeof AppRewardsRoute
   '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
@@ -631,7 +631,7 @@ export interface FileRoutesById {
   '/app/gifts': typeof AppGiftsRoute
   '/app/help': typeof AppHelpRoute
   '/app/notifications': typeof AppNotificationsRoute
-  '/app/profile': typeof AppProfileRouteWithChildren
+  '/app/profile': typeof AppProfileRoute
   '/app/rewards': typeof AppRewardsRoute
   '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
@@ -661,7 +661,7 @@ export interface FileRoutesById {
   '/app/games/color-connect': typeof AppGamesColorConnectRoute
   '/app/games/leaderboard': typeof AppGamesLeaderboardRoute
   '/app/games/scratch': typeof AppGamesScratchRoute
-  '/app/profile/edit': typeof AppProfileEditRoute
+  '/app/profile_/edit': typeof AppProfileEditRoute
   '/app/wallet/buy': typeof AppWalletBuyRoute
   '/app/wallet/transactions': typeof AppWalletTransactionsRoute
   '/creator/chat/$id': typeof CreatorChatIdRoute
@@ -884,7 +884,7 @@ export interface FileRouteTypes {
     | '/app/games/color-connect'
     | '/app/games/leaderboard'
     | '/app/games/scratch'
-    | '/app/profile/edit'
+    | '/app/profile_/edit'
     | '/app/wallet/buy'
     | '/app/wallet/transactions'
     | '/creator/chat/$id'
@@ -1371,12 +1371,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGamesScratchRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/profile/edit': {
-      id: '/app/profile/edit'
-      path: '/edit'
+    '/app/profile_/edit': {
+      id: '/app/profile_/edit'
+      path: '/profile/edit'
       fullPath: '/app/profile/edit'
       preLoaderRoute: typeof AppProfileEditRouteImport
-      parentRoute: typeof AppProfileRoute
+      parentRoute: typeof AppRoute
     }
     '/app/wallet/': {
       id: '/app/wallet/'
@@ -1473,25 +1473,13 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
-interface AppProfileRouteChildren {
-  AppProfileEditRoute: typeof AppProfileEditRoute
-}
-
-const AppProfileRouteChildren: AppProfileRouteChildren = {
-  AppProfileEditRoute: AppProfileEditRoute,
-}
-
-const AppProfileRouteWithChildren = AppProfileRoute._addFileChildren(
-  AppProfileRouteChildren,
-)
-
 interface AppRouteChildren {
   AppCreatorsRoute: typeof AppCreatorsRoute
   AppFavoritesRoute: typeof AppFavoritesRoute
   AppGiftsRoute: typeof AppGiftsRoute
   AppHelpRoute: typeof AppHelpRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
-  AppProfileRoute: typeof AppProfileRouteWithChildren
+  AppProfileRoute: typeof AppProfileRoute
   AppRewardsRoute: typeof AppRewardsRoute
   AppSearchRoute: typeof AppSearchRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -1501,6 +1489,7 @@ interface AppRouteChildren {
   AppGamesColorConnectRoute: typeof AppGamesColorConnectRoute
   AppGamesLeaderboardRoute: typeof AppGamesLeaderboardRoute
   AppGamesScratchRoute: typeof AppGamesScratchRoute
+  AppProfileEditRoute: typeof AppProfileEditRoute
   AppWalletBuyRoute: typeof AppWalletBuyRoute
   AppWalletTransactionsRoute: typeof AppWalletTransactionsRoute
   AppChatIndexRoute: typeof AppChatIndexRoute
@@ -1516,7 +1505,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGiftsRoute: AppGiftsRoute,
   AppHelpRoute: AppHelpRoute,
   AppNotificationsRoute: AppNotificationsRoute,
-  AppProfileRoute: AppProfileRouteWithChildren,
+  AppProfileRoute: AppProfileRoute,
   AppRewardsRoute: AppRewardsRoute,
   AppSearchRoute: AppSearchRoute,
   AppSettingsRoute: AppSettingsRoute,
@@ -1526,6 +1515,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGamesColorConnectRoute: AppGamesColorConnectRoute,
   AppGamesLeaderboardRoute: AppGamesLeaderboardRoute,
   AppGamesScratchRoute: AppGamesScratchRoute,
+  AppProfileEditRoute: AppProfileEditRoute,
   AppWalletBuyRoute: AppWalletBuyRoute,
   AppWalletTransactionsRoute: AppWalletTransactionsRoute,
   AppChatIndexRoute: AppChatIndexRoute,

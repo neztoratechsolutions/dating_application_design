@@ -143,6 +143,11 @@ function AdminGifts() {
   const setShare = useGifts((s) => s.setCreatorShare);
   const history = useGifts((s) => s.history);
   const [draft, setDraft] = useState(share);
+  
+// Gift revenue configuration
+const [revenueId, setRevenueId] = useState<number | null>(null);
+const [revenueLoading, setRevenueLoading] = useState(true);
+const [revenueSaving, setRevenueSaving] = useState(false);
 
   // Live gifts from API
   const [gifts, setGifts] = useState<ApiGift[]>([]);
@@ -165,6 +170,69 @@ function AdminGifts() {
   const totalCoins = history.reduce((a, h) => a + h.price, 0);
   const creatorCut = Math.round((totalCoins * share) / 100);
   const platformCut = totalCoins - creatorCut;
+  
+// =====================================
+// FETCH GIFT REVENUE CONFIGURATION
+// =====================================
+
+const fetchGiftRevenue = useCallback(async () => {
+  if (!API_BASE_URL) {
+    toast.error("Backend URL is missing");
+    setRevenueLoading(false);
+    return;
+  }
+
+  try {
+    setRevenueLoading(true);
+
+    const response = await fetch(`${API_BASE_URL}/gift-revenue`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    // No configuration exists yet
+    if (response.status === 404) {
+      setRevenueId(null);
+      setDraft(10);
+      setRevenueLoading(false);
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail || "Failed to fetch gift revenue"
+      );
+    }
+
+    const revenue = Array.isArray(result.data)
+      ? result.data[0]
+      : null;
+
+    if (revenue) {
+      setRevenueId(revenue.id);
+      setDraft(Number(revenue.creator_revenue));
+      setShare(Number(revenue.creator_revenue));
+    } else {
+      setRevenueId(null);
+      setDraft(10);
+    }
+
+  } catch (error) {
+    console.error("Fetch gift revenue error:", error);
+
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : "Unable to fetch revenue split"
+    );
+  } finally {
+    setRevenueLoading(false);
+  }
+}, [API_BASE_URL, setShare]);
 
   // Fetch gifts from API
   const fetchGifts = useCallback(async () => {
@@ -186,7 +254,10 @@ function AdminGifts() {
       setGiftsLoading(false);
     }
   }, []);
-
+  
+useEffect(() => {
+  fetchGiftRevenue();
+}, [fetchGiftRevenue]);
   useEffect(() => {
     fetchGifts();
   }, [fetchGifts]);
@@ -201,6 +272,81 @@ function AdminGifts() {
     if (isSubmitting) return;
     setIsCreateModalOpen(false);
   };
+  
+// =====================================
+// SAVE GIFT REVENUE CONFIGURATION
+// =====================================
+
+const handleSaveRevenue = async () => {
+  const creatorRevenue = Number(draft);
+  const platformRevenue = 100 - creatorRevenue;
+
+  if (
+    !Number.isFinite(creatorRevenue) ||
+    creatorRevenue < 0 ||
+    creatorRevenue > 100
+  ) {
+    toast.error("Creator revenue must be between 0 and 100");
+    return;
+  }
+
+  setRevenueSaving(true);
+
+  try {
+    const payload = {
+      creator_revenue: creatorRevenue,
+      platform_revenue: platformRevenue,
+    };
+
+    const isUpdate = revenueId !== null;
+
+    const url = isUpdate
+      ? `${API_BASE_URL}/gift-revenue/${revenueId}`
+      : `${API_BASE_URL}/gift-revenue`;
+
+    const response = await fetch(url, {
+      method: isUpdate ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        result.detail ||
+        result.message ||
+        "Failed to save revenue configuration"
+      );
+    }
+
+    // Save returned configuration ID
+    if (result.data?.id) {
+      setRevenueId(result.data.id);
+    }
+
+    // Update local gift store
+    setShare(creatorRevenue);
+
+    toast.success(
+      result.message || "Revenue split saved successfully"
+    );
+
+  } catch (error) {
+    console.error("Save revenue error:", error);
+
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : "Unable to save revenue split"
+    );
+  } finally {
+    setRevenueSaving(false);
+  }
+};
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -294,29 +440,74 @@ function AdminGifts() {
         ))}
       </div>
 
-      <GlassCard>
-        <h3 className="font-bold mb-3">Revenue Split</h3>
-        <p className="text-xs text-muted-foreground mb-3">
-          Creators get <b>{draft}%</b> · Platform keeps {100 - draft}%
+     
+<GlassCard>
+  <h3 className="font-bold mb-3">
+    Revenue Split
+  </h3>
+
+  {revenueLoading ? (
+    <div className="flex justify-center py-6">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  ) : (
+    <>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted-foreground">
+          Creators get <b>{draft}%</b> · Platform keeps{" "}
+          <b>{100 - draft}%</b>
         </p>
-        <input
-          type="range"
-          min={5}
-          max={80}
-          value={draft}
-          onChange={(e) => setDraft(+e.target.value)}
-          className="w-full"
-        />
-        <button
-          onClick={() => {
-            setShare(draft);
-            toast.success(`Creator share set to ${draft}%`);
-          }}
-          className="mt-3 rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold shadow-glow"
-        >
-          Save changes
-        </button>
-      </GlassCard>
+      </div>
+
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={draft}
+        onChange={(e) => setDraft(Number(e.target.value))}
+        className="w-full"
+        disabled={revenueSaving}
+      />
+
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="glass rounded-xl p-3">
+          <p className="text-xs text-muted-foreground">
+            Creator Revenue
+          </p>
+          <p className="text-xl font-bold text-primary">
+            {draft}%
+          </p>
+        </div>
+
+        <div className="glass rounded-xl p-3">
+          <p className="text-xs text-muted-foreground">
+            Platform Revenue
+          </p>
+          <p className="text-xl font-bold">
+            {100 - draft}%
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={handleSaveRevenue}
+        disabled={revenueSaving}
+        className="mt-3 rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold shadow-glow disabled:opacity-50 flex items-center gap-2"
+      >
+        {revenueSaving ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          "Save changes"
+        )}
+      </button>
+    </>
+  )}
+</GlassCard>
+
 
       <div>
         <div className="flex items-center justify-between mb-3">
